@@ -1,0 +1,26 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = \r\n
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.cs]
+dotnet_sort_system_directives_using_includes_global = true
+csharp_prefer_static_used_local_function = true = false
+dotnet_style_prefer_is_expression = true:warning
+dotnet_style_coalesce_expression = true:warning
+dotnet_style_null_propagation = true:warning
+
+[*.ts]
+indent_style = space
+indent_size = 2
+
+[*.tsx]
+indent_style = space
+indent_size = 2
+
+[*.json]
+indent_style = space
+indent_size = 2

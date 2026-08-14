@@ -1,0 +1,30 @@
+## Build results
+[Bb]in/
+[Oo]bj/
+
+## Node
+frontend/node_modules/
+frontend/build/
+
+## IDE
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Logs
+logs/
+*.log
+
+## Environment
+.env
+!.env.example
+
+## Secrets
+.mcp.json

@@ -1,0 +1,8 @@
+# Claude Code local state
+.claude/settings.local.json
+
+# Local MCP credentials/config if it contains secrets
+.mcp.json
+
+# Local agent runtime artifacts
+docs/agent-state/local/
