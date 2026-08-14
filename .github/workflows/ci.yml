@@ -58,12 +58,13 @@ jobs:
         NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=Era@123
       run: dotnet test tests/Platform.Tests.SchemaContract/Platform.Tests.SchemaContract.csproj --no-build --verbosity normal
 
+    - name: Build Integration Tests
+      run: dotnet build tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --verbosity normal
+
     - name: Test (Integration — requires PostgreSQL service)
       env:
         NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=Era@123
-      run: |
-        dotnet build tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --verbosity quiet
-        dotnet test tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --no-build --logger:"console;verbosity=normal"
+      run: dotnet test tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --no-build --logger:"console;verbosity=normal"
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
