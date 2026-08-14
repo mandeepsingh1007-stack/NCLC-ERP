@@ -33,10 +33,10 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Restore .NET packages
-      run: dotnet restore
+      run: dotnet restore Platform.sln
 
     - name: Build
-      run: dotnet build --no-restore
+      run: dotnet build --no-restore Platform.sln
 
     - name: Test (Core — Unit Tests)
       run: dotnet test tests/Platform.Tests.Core/Platform.Tests.Core.csproj --no-build --verbosity normal
@@ -61,7 +61,9 @@ jobs:
     - name: Test (Integration — requires PostgreSQL service)
       env:
         NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=Era@123
-      run: dotnet test tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --verbosity normal --logger:"console;verbosity=normal"
+      run: |
+        dotnet build tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --verbosity quiet
+        dotnet test tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --no-build --logger:"console;verbosity=normal"
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
