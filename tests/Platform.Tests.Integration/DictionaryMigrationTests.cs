@@ -57,7 +57,6 @@ public class DictionaryMigrationTests : IAsyncLifetime
     [Fact]
     public async Task All_8_Dictionary_Tables_Should_Exist()
     {
-        // Verify all 8 tables exist
         var tables = new[]
         {
             "SysElement", "SysElement_Trl", "SysReference", "SysReferenceList",
@@ -130,7 +129,7 @@ public class DictionaryMigrationTests : IAsyncLifetime
     public async Task SysReference_Should_Be_Seeded()
     {
         using var cmd = new Npgsql.NpgsqlCommand("SELECT COUNT(*) FROM \"SysReference\"", _connection!);
-        var count = (int)((await cmd.ExecuteScalarAsync())!);
+        var count = (long)((await cmd.ExecuteScalarAsync())!);
         count.Should().BeGreaterThanOrEqualTo(11);
     }
 
@@ -138,7 +137,7 @@ public class DictionaryMigrationTests : IAsyncLifetime
     public async Task SysValRule_Should_Be_Seeded()
     {
         using var cmd = new Npgsql.NpgsqlCommand("SELECT COUNT(*) FROM \"SysValRule\"", _connection!);
-        var count = (int)((await cmd.ExecuteScalarAsync())!);
+        var count = (long)((await cmd.ExecuteScalarAsync())!);
         count.Should().BeGreaterThanOrEqualTo(2);
     }
 
@@ -146,7 +145,7 @@ public class DictionaryMigrationTests : IAsyncLifetime
     public async Task SysTable_Should_Be_Seeded()
     {
         using var cmd = new Npgsql.NpgsqlCommand("SELECT COUNT(*) FROM \"SysTable\"", _connection!);
-        var count = (int)((await cmd.ExecuteScalarAsync())!);
+        var count = (long)((await cmd.ExecuteScalarAsync())!);
         count.Should().BeGreaterThanOrEqualTo(7);
     }
 
@@ -154,7 +153,7 @@ public class DictionaryMigrationTests : IAsyncLifetime
     public async Task SysElement_Should_Be_Seeded()
     {
         using var cmd = new Npgsql.NpgsqlCommand("SELECT COUNT(*) FROM \"SysElement\"", _connection!);
-        var count = (int)((await cmd.ExecuteScalarAsync())!);
+        var count = (long)((await cmd.ExecuteScalarAsync())!);
         count.Should().BeGreaterThanOrEqualTo(27);
     }
 
@@ -162,45 +161,38 @@ public class DictionaryMigrationTests : IAsyncLifetime
     public async Task SysReferenceTable_Should_Be_Seeded()
     {
         using var cmd = new Npgsql.NpgsqlCommand("SELECT COUNT(*) FROM \"SysReferenceTable\"", _connection!);
-        var count = (int)((await cmd.ExecuteScalarAsync())!);
+        var count = (long)((await cmd.ExecuteScalarAsync())!);
         count.Should().BeGreaterThanOrEqualTo(1);
     }
 
     [Fact]
     public async Task ForeignKeys_Should_Have_No_Orphans()
     {
-        // SysReferenceList -> SysReference
-        using var cmd1 = new Npgsql.NpgsqlCommand("""
-            SELECT COUNT(*) FROM \"SysReferenceList\" r
-            LEFT JOIN \"SysReference\" s ON r.\"SysReference_ID\" = s.\"SysReference_ID\"
-            WHERE s.\"SysReference_ID\" IS NULL
-            """, _connection!);
-        var orphans1 = (int)(await cmd1.ExecuteScalarAsync()!);
+        using var cmd1 = new Npgsql.NpgsqlCommand(
+            $"SELECT COUNT(*) FROM \"SysReferenceList\" r " +
+            $"LEFT JOIN \"SysReference\" s ON r.\"SysReference_ID\" = s.\"SysReference_ID\" " +
+            $"WHERE s.\"SysReference_ID\" IS NULL", _connection!);
+        var orphans1 = (long)(await cmd1.ExecuteScalarAsync()!);
         orphans1.Should().Be(0);
 
-        // SysReferenceTable -> SysReference
-        using var cmd2 = new Npgsql.NpgsqlCommand("""
-            SELECT COUNT(*) FROM \"SysReferenceTable\" r
-            LEFT JOIN \"SysReference\" s ON r.\"SysReference_ID\" = s.\"SysReference_ID\"
-            WHERE s.\"SysReference_ID\" IS NULL
-            """, _connection!);
-        var orphans2 = (int)(await cmd2.ExecuteScalarAsync()!);
+        using var cmd2 = new Npgsql.NpgsqlCommand(
+            $"SELECT COUNT(*) FROM \"SysReferenceTable\" r " +
+            $"LEFT JOIN \"SysReference\" s ON r.\"SysReference_ID\" = s.\"SysReference_ID\" " +
+            $"WHERE s.\"SysReference_ID\" IS NULL", _connection!);
+        var orphans2 = (long)(await cmd2.ExecuteScalarAsync()!);
         orphans2.Should().Be(0);
 
-        // SysColumn -> SysTable
-        using var cmd3 = new Npgsql.NpgsqlCommand("""
-            SELECT COUNT(*) FROM \"SysColumn\" c
-            LEFT JOIN \"SysTable\" t ON c.\"SysTable_ID\" = t.\"SysTable_ID\"
-            WHERE t.\"SysTable_ID\" IS NULL
-            """, _connection!);
-        var orphans3 = (int)(await cmd3.ExecuteScalarAsync()!);
+        using var cmd3 = new Npgsql.NpgsqlCommand(
+            $"SELECT COUNT(*) FROM \"SysColumn\" c " +
+            $"LEFT JOIN \"SysTable\" t ON c.\"SysTable_ID\" = t.\"SysTable_ID\" " +
+            $"WHERE t.\"SysTable_ID\" IS NULL", _connection!);
+        var orphans3 = (long)(await cmd3.ExecuteScalarAsync()!);
         orphans3.Should().Be(0);
     }
 
     [Fact]
     public async Task UNIQUE_Constraints_Should_Be_Enforced()
     {
-        // Try to insert duplicate SysReference.Name
         using var insert = new Npgsql.NpgsqlCommand(
             "INSERT INTO \"SysReference\" (\"Name\", \"ValidationType\") VALUES ('DupTest', 'LIST')",
             _connection!);
@@ -213,7 +205,6 @@ public class DictionaryMigrationTests : IAsyncLifetime
             () => dup.ExecuteNonQueryAsync());
         ex.SqlState.Should().Be("23505");
 
-        // Clean up
         using var del = new Npgsql.NpgsqlCommand(
             "DELETE FROM \"SysReference\" WHERE \"Name\" = 'DupTest'", _connection!);
         await del.ExecuteNonQueryAsync();
