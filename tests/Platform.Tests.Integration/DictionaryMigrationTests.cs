@@ -13,8 +13,16 @@ public class DictionaryMigrationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        _container = new PostgreSqlBuilder()
-            .WithImage("postgres:15-alpine")
+        var envConnStr = Environment.GetEnvironmentVariable("NCLC_TEST_CONNECTION_STRING");
+        if (!string.IsNullOrEmpty(envConnStr))
+        {
+            // CI: use the service container's PostgreSQL directly
+            _connection = new Npgsql.NpgsqlConnection(envConnStr);
+            await _connection.OpenAsync();
+            return;
+        }
+
+        _container = new PostgreSqlBuilder("postgres:15-alpine")
             .WithPassword("testpass")
             .Build();
         await _container.StartAsync();
@@ -26,6 +34,11 @@ public class DictionaryMigrationTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        if (_connection is not null && _container is null)
+        {
+            // CI mode — don't close the shared service container connection
+            return;
+        }
         _connection?.Close();
         _connection?.Dispose();
         if (_container is not null)
