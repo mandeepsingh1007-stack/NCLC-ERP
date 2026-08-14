@@ -40,6 +40,16 @@ INSERT INTO "SysTable" ("TableName", "ClassName", "Description", "IsView", "Acce
 ON CONFLICT ("TableName") DO NOTHING;
 
 -- ------------------------------------------------------------------
+-- Seed SysReferenceTable — map reference types to tables
+-- ------------------------------------------------------------------
+-- Table references: each reference type links to tables that use it
+INSERT INTO "SysReferenceTable" ("SysReference_ID", "SysTable_ID", "KeyColumn", "DisplayColumn") VALUES
+    ((SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'List'),
+     (SELECT "SysTable_ID" FROM "SysTable" WHERE "TableName" = 'SysReferenceList'),
+     'Value', 'Name')
+ON CONFLICT ("SysReference_ID") DO NOTHING;
+
+-- ------------------------------------------------------------------
 -- Seed SysElement entries for all seed table column names
 -- ------------------------------------------------------------------
 INSERT INTO "SysElement" ("ColumnName", "Name", "Description", "IsActive") VALUES

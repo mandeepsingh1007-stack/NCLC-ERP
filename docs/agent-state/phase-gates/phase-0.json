@@ -1,0 +1,30 @@
+{
+  "phase": 0,
+  "phaseName": "Engineering Foundation",
+  "status": "accepted",
+  "acceptedAt": "2026-08-13T00:00:00Z",
+  "acceptanceCriteria": [
+    "Repository initialized with .NET 8 solution",
+    "PostgreSQL 15+ installed and reachable",
+    "Redis installed and reachable",
+    "React + TypeScript frontend scaffolded and builds",
+    "NuGet packages: Dapper, Npgsql, DbUp, Hangfire, xUnit, NSubstitute, Moq",
+    "GitHub Actions CI configured (build + unit tests + frontend build)",
+    "Claude Code configuration present: agents, skills, hooks",
+    "CLAUDE.md present with architecture rules",
+    "Master HLD/LLD v2 at docs/architecture/FINAL-MASTER-HLD-LLD-v2.md",
+    "Solution builds with 0 errors",
+    "Unit tests compile",
+    "Frontend builds with 0 errors",
+    "No secrets committed (git ls-files | xargs grep -E '(password|secret|key)' == empty)"
+  ],
+  "required": [
+    "dotnet build succeeds",
+    "dotnet test succeeds",
+    "frontend npm run build succeeds",
+    "PostgreSQL reachable",
+    "Redis PONG",
+    "CI pipeline valid (yml syntax check)",
+    "No secrets in repository"
+  ]
+}

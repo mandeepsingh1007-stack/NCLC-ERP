@@ -4,6 +4,8 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using DbUp;
+using Platform.Data.Repositories;
+using Platform.Core.Metadata;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -32,6 +34,16 @@ try
     // Add memory cache (metadata cache)
     builder.Services.AddMemoryCache();
 
+    // Register Dictionary repositories (singleton — stateless Dapper repos, connection string resolved once at startup)
+    builder.Services.AddSingleton<SysElementRepository>(sp => new SysElementRepository(connectionString));
+    builder.Services.AddSingleton<SysTranslationRepository>(sp => new SysTranslationRepository(connectionString));
+    builder.Services.AddSingleton<SysReferenceRepository>(sp => new SysReferenceRepository(connectionString));
+    builder.Services.AddSingleton<SysReferenceListRepository>(sp => new SysReferenceListRepository(connectionString));
+    builder.Services.AddSingleton<SysReferenceTableRepository>(sp => new SysReferenceTableRepository(connectionString));
+    builder.Services.AddSingleton<SysTableRepository>(sp => new SysTableRepository(connectionString));
+    builder.Services.AddSingleton<SysColumnRepository>(sp => new SysColumnRepository(connectionString));
+    builder.Services.AddSingleton<SysValRuleRepository>(sp => new SysValRuleRepository(connectionString));
+
     // Add Redis for distributed caching / cache invalidation
     var redisConnection = builder.Configuration.GetValue<string>("Redis:ConnectionString")
         ?? "localhost:6379";
@@ -39,6 +51,9 @@ try
         options.Configuration = redisConnection);
 
     var app = builder.Build();
+
+    // Register Dapper type handlers for enum <-> string round-trip
+    DapperTypeHandlers.Register();
 
     // Run database migrations via DbUp
     var upgrader = DeployChanges.To

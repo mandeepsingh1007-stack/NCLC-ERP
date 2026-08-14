@@ -1,0 +1,32 @@
+{
+  "phase": 5,
+  "phaseName": "Process / Workflow",
+  "prerequisites": [
+    "Phase 4 status == accepted",
+    "Phase 4 gateStatus == pass",
+    "Phase 4 CI == pass"
+  ],
+  "acceptanceCriteria": {
+    "workflowEngine": [
+      "Workflow definition stored in metadata",
+      "State transitions enforced — document state separate from workflow state",
+      "Transition rules validated against metadata",
+      "Workflow state machine implemented and tested"
+    ],
+    "hooks": [
+      "Before/after transition hooks defined in metadata",
+      "Hook execution order deterministic",
+      "Hook failures handled — rollback or abort"
+    ],
+    "tests": {
+      "workflow": [
+        "Valid state transitions succeed",
+        "Invalid state transitions rejected",
+        "Hooks execute in correct order",
+        "Hook failure triggers rollback"
+      ],
+      "regression": "Phase 1-4 tests still pass"
+    },
+    "hldCompliance": "Matches FINAL-MASTER-HLD-LLD-v2.md Section 11"
+  }
+}

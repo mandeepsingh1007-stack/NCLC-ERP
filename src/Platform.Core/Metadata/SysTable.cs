@@ -10,7 +10,7 @@ public class SysTable : ISysEntity
     public string? ClassName { get; set; }
     public string? Description { get; set; }
     public bool IsView { get; set; }
-    public short AccessLevel { get; set; }
+    public short AccessLevel { get; set; } = 3;
     public bool IsChangeLog { get; set; }
     public bool IsDeleteable { get; set; }
     public bool IsHighVolume { get; set; }

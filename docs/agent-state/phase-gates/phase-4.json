@@ -1,0 +1,36 @@
+{
+  "phase": 4,
+  "phaseName": "Security / Tenancy",
+  "prerequisites": [
+    "Phase 3 status == accepted",
+    "Phase 3 gateStatus == pass",
+    "Phase 3 CI == pass"
+  ],
+  "acceptanceCriteria": {
+    "authentication": [
+      "Identity provider configured (ADR-gated)",
+      "JWT token validation on all API endpoints",
+      "Session/token handling reviewed by security-reviewer"
+    ],
+    "authorization": [
+      "RBAC enforced server-side on all API endpoints",
+      "Record-level and column-level access control from metadata",
+      "Tenant isolation — cross-tenant access always rejected"
+    ],
+    "tenancy": [
+      "Tenant predicate applied centrally to all queries",
+      "Org-level scoping where applicable",
+      "Cross-tenant access attempts logged and rejected"
+    ],
+    "tests": {
+      "security": [
+        "Unauthenticated requests rejected",
+        "Insufficient role requests rejected",
+        "Cross-tenant access rejected",
+        "Column-level access denied for restricted columns"
+      ],
+      "regression": "Phase 1-3 tests still pass"
+    },
+    "hldCompliance": "Matches FINAL-MASTER-HLD-LLD-v2.md Section 10"
+  }
+}

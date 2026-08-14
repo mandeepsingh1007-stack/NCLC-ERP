@@ -1,0 +1,72 @@
+{
+  "phase": 1,
+  "phaseName": "Dictionary Foundation",
+  "acceptanceCriteria": {
+    "schema": [
+      "8 tables created: SysElement, SysElement_Trl, SysReference, SysReferenceList, SysReferenceTable, SysValRule, SysTable, SysColumn",
+      "SysElement: PK SysElement_ID (SERIAL), ColumnName VARCHAR(60) NOT NULL UNIQUE, Name VARCHAR(120) NOT NULL, Description VARCHAR(255), Help TEXT, IsActive BOOLEAN DEFAULT TRUE",
+      "SysElement_Trl: Composite PK (SysElement_ID, Language), FK->SysElement CASCADE, Name VARCHAR(120), Description VARCHAR(255), Help TEXT, Language VARCHAR(10)",
+      "SysReference: PK SysReference_ID (SERIAL), Name VARCHAR(60) NOT NULL UNIQUE, ValidationType VARCHAR(10) NOT NULL, IsSystemType BOOLEAN DEFAULT FALSE, ValueFormat VARCHAR(60)",
+      "SysReferenceList: PK SysReferenceList_ID (SERIAL), FK->SysReference CASCADE, Value VARCHAR(30) NOT NULL, Name VARCHAR(60) NOT NULL, SeqNo INT DEFAULT 0, IsActive BOOLEAN DEFAULT TRUE, UNIQUE(SysReference_ID, Value)",
+      "SysReferenceTable: PK SysReference_ID (FK->SysReference CASCADE), FK->SysTable, KeyColumn VARCHAR(60) NOT NULL, DisplayColumn VARCHAR(60) NOT NULL, WhereClause VARCHAR(500), OrderByClause VARCHAR(255)",
+      "SysValRule: PK SysValRule_ID (SERIAL), Name VARCHAR(120) NOT NULL UNIQUE, Description VARCHAR(255), RuleType VARCHAR(10) NOT NULL DEFAULT 'SQL', Code VARCHAR(2000) NOT NULL, IsActive BOOLEAN DEFAULT TRUE",
+      "SysTable: PK SysTable_ID (SERIAL), TableName VARCHAR(60) NOT NULL UNIQUE, ClassName VARCHAR(120), Description VARCHAR(255), IsView BOOLEAN DEFAULT FALSE, AccessLevel SMALLINT NOT NULL DEFAULT 3, IsChangeLog BOOLEAN DEFAULT FALSE, IsDeleteable BOOLEAN DEFAULT TRUE, IsHighVolume BOOLEAN DEFAULT FALSE, ReplicationType VARCHAR(10) NOT NULL DEFAULT 'L', SysWindow_ID INT, EntityType VARCHAR(20) NOT NULL DEFAULT 'D', IsActive BOOLEAN DEFAULT TRUE",
+      "SysColumn: PK SysColumn_ID (SERIAL), FK->SysTable CASCADE, ColumnName VARCHAR(60) NOT NULL, SysElement_ID INT FK->SysElement, SysReference_ID INT NOT NULL FK->SysReference, SysReferenceValue_ID INT, SysValRule_ID INT FK->SysValRule, FieldLength INT, IsMandatory BOOLEAN DEFAULT FALSE, IsKey BOOLEAN DEFAULT FALSE, IsParent BOOLEAN DEFAULT FALSE, IsIdentifier BOOLEAN DEFAULT FALSE, IsSelectionColumn BOOLEAN DEFAULT FALSE, IsEncrypted BOOLEAN DEFAULT FALSE, IsUpdateable BOOLEAN DEFAULT TRUE, IsAlwaysUpdateable BOOLEAN DEFAULT FALSE, DefaultValue VARCHAR(255), ValueMin VARCHAR(60), ValueMax VARCHAR(60), SeqNo INT DEFAULT 0, EntityType VARCHAR(20) NOT NULL DEFAULT 'D', IsActive BOOLEAN DEFAULT TRUE, UNIQUE(SysTable_ID, ColumnName)"
+    ],
+    "constraints": [
+      "SysColumn.SysReference_ID is NOT NULL (four-concept separation invariant)",
+      "SysTable.AccessLevel DEFAULT 3",
+      "SysValRule.RuleType DEFAULT 'SQL'",
+      "SysElement.ColumnName UNIQUE",
+      "SysReference.Name UNIQUE",
+      "SysValRule.Name UNIQUE",
+      "SysTable.TableName UNIQUE",
+      "SysReferenceList UNIQUE(SysReference_ID, Value)",
+      "SysColumn UNIQUE(SysTable_ID, ColumnName)",
+      "SysElement_Trl composite PK (SysElement_ID, Language)"
+    ],
+    "foreignKeys": [
+      "SysElement_Trl.SysElement_ID -> SysElement",
+      "SysReferenceList.SysReference_ID -> SysReference",
+      "SysReferenceTable.SysReference_ID -> SysReference",
+      "SysReferenceTable.SysTable_ID -> SysTable",
+      "SysColumn.SysTable_ID -> SysTable",
+      "SysColumn.SysElement_ID -> SysElement",
+      "SysColumn.SysReference_ID -> SysReference",
+      "SysColumn.SysValRule_ID -> SysValRule"
+    ],
+    "seedData": {
+      "SysReference": { "minCount": 11, "types": ["String", "Integer", "Decimal", "Date", "DateTime", "YesNo", "List", "Table", "Search", "Text", "Binary"] },
+      "SysValRule": { "minCount": 2, "types": ["NotNull", "MaxLength"] },
+      "SysTable": { "minCount": 7, "names": ["SysElement", "SysElement_Trl", "SysReference", "SysReferenceList", "SysValRule", "SysTable", "SysColumn"] },
+      "SysElement": { "minCount": 27, "unique": "ColumnName" },
+      "SysReferenceTable": { "minCount": 1 }
+    },
+    "migrations": [
+      "001_Create_Dictionary_Schema.sql — idempotent (CREATE TABLE IF NOT EXISTS)",
+      "002_Seed_Dictionary_Data.sql — idempotent (ON CONFLICT DO NOTHING)",
+      "FK dependency ordering correct: SysTable before SysReferenceTable and SysColumn",
+      "Migrations execute successfully against clean PostgreSQL"
+    ],
+    "tests": {
+      "unitTests": { "minCount": 24, "coverage": ["SysElement", "SysTranslation", "SysReference", "SysReferenceList", "SysTable", "SysColumn", "SysValRule"] },
+      "integrationTests": { "minCount": 2, "tests": ["migration 001 creates all 8 tables", "migration 002 seeds reference data"] }
+    },
+    "repository": [
+      "8 repositories implemented with Dapper + parameterized queries",
+      "All Create methods return QuerySingle<int> for identity",
+      "Singleton DI registration with connection string factory",
+      "ISysCompositeRepository<T> for composite-key entities",
+      "Stateless — no shared mutable state"
+    ],
+    "hldCompliance": "All fields, types, constraints match FINAL-MASTER-HLD-LLD-v2.md Section 7",
+    "security": [
+      "No raw SQL injection vectors — values are parameterized",
+      "WhereClause/OrderByClause/Code columns flagged as future risk (Phase 2+)"
+    ],
+    "ci": [
+      "CI pipeline configured for Windows with .NET 8 + Node 20",
+      "CI runs: build, unit tests, frontend build"
+    ]
+  }
+}

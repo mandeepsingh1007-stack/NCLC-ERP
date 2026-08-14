@@ -9,7 +9,7 @@ public class SysColumn : ISysEntity
     public int SysTableId { get; set; }
     public string ColumnName { get; set; } = string.Empty;
     public int? SysElementId { get; set; }
-    public int? SysReferenceId { get; set; }
+    public int SysReferenceId { get; set; }
     public int? SysValRuleId { get; set; }
     public int? SysReferenceValueId { get; set; }
     public int? FieldLength { get; set; }

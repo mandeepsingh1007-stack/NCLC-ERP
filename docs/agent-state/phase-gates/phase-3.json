@@ -1,0 +1,30 @@
+{
+  "phase": 3,
+  "phaseName": "Generic Data API / UI Runtime",
+  "prerequisites": [
+    "Phase 2 status == accepted",
+    "Phase 2 gateStatus == pass",
+    "Phase 2 CI == pass"
+  ],
+  "acceptanceCriteria": {
+    "api": [
+      "Generic CRUD endpoints derived from metadata (no hand-written controllers per entity)",
+      "List with filtering, sorting, pagination from metadata",
+      "Create/Update/Delete with validation from metadata",
+      "API contract versioned and backward compatible"
+    ],
+    "ui": [
+      "Generic data grid/renderer driven by metadata",
+      "Form generation from SysColumn definitions",
+      "Lookup resolution from SysReference definitions",
+      "Validation feedback from metadata"
+    ],
+    "tests": {
+      "apiContract": "All CRUD operations through API contract tested",
+      "e2e": "Full create-read-update-delete flows in UI tested",
+      "pagination": "Pagination works correctly at scale",
+      "filtering": "Server-side filtering matches metadata definitions"
+    },
+    "hldCompliance": "Matches FINAL-MASTER-HLD-LLD-v2.md Section 9"
+  }
+}

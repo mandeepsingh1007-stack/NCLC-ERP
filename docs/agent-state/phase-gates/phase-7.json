@@ -1,0 +1,44 @@
+{
+  "phase": 7,
+  "phaseName": "Production Hardening",
+  "prerequisites": [
+    "Phase 6 status == accepted",
+    "Phase 6 gateStatus == pass",
+    "Phase 6 CI == pass"
+  ],
+  "acceptanceCriteria": {
+    "observability": [
+      "Structured logging with correlation IDs",
+      "Health checks (liveness + readiness)",
+      "Metrics exposed (request count, error rate, latency)",
+      "Distributed tracing configured"
+    ],
+    "resilience": [
+      "Circuit breakers for external dependencies",
+      "Retry policies with exponential backoff",
+      "Graceful degradation"
+    ],
+    "deployments": [
+      "Rollback procedure tested",
+      "Forward/backward migration compatibility",
+      "Blue-green or canary deployment support",
+      "Release notes generated"
+    ],
+    "performance": [
+      "Response time SLAs met",
+      "Database query plans reviewed for regressions",
+      "Load testing for expected throughput"
+    ],
+    "security": [
+      "Full penetration test",
+      "Dependency vulnerability scan clean",
+      "Secrets rotated and stored in vault"
+    ],
+    "tests": {
+      "e2e": "Full user journeys tested end-to-end",
+      "load": "Expected throughput achieved",
+      "regression": "All previous phase tests pass",
+      "security": "Pen test results acceptable"
+    }
+  }
+}

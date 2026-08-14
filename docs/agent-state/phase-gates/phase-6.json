@@ -1,0 +1,33 @@
+{
+  "phase": 6,
+  "phaseName": "Platform Services",
+  "prerequisites": [
+    "Phase 5 status == accepted",
+    "Phase 5 gateStatus == pass",
+    "Phase 5 CI == pass"
+  ],
+  "acceptanceCriteria": {
+    "backgroundJobs": [
+      "Hangfire or Quartz.NET configured (ADR-gated)",
+      "Job scheduling from metadata where applicable",
+      "Job retry and failure handling"
+    ],
+    "messaging": [
+      "RabbitMQ or Kafka configured (ADR-gated)",
+      "Event publishing from state transitions",
+      "Event consumption with idempotency"
+    ],
+    "notifications": [
+      "Notification templates in metadata",
+      "Delivery channels configurable",
+      "Notification triggers from workflow/events"
+    ],
+    "tests": {
+      "backgroundJobs": "Scheduled jobs execute correctly, retries work",
+      "messaging": "Event publish/consume round-trip tested",
+      "notifications": "Notification delivery tested",
+      "regression": "Phase 1-5 tests still pass"
+    },
+    "hldCompliance": "Matches FINAL-MASTER-HLD-LLD-v2.md Section 12"
+  }
+}

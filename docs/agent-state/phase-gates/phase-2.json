@@ -1,0 +1,41 @@
+{
+  "phase": 2,
+  "phaseName": "Metadata Runtime",
+  "prerequisites": [
+    "Phase 1 status == accepted",
+    "Phase 1 gateStatus == pass (not ci_pending)",
+    "Phase 1 CI == pass",
+    "No blocking blockers in phase-state.json"
+  ],
+  "acceptanceCriteria": {
+    "runtimeServices": [
+      "IEntityRuntimeService — generic CRUD at runtime from metadata",
+      "IMetadataCache — in-memory cache with graph-based invalidation",
+      "Type validation — runtime type checks against SysColumn definitions",
+      "Reference validation — FK validation against SysReference definitions",
+      "ValRule evaluation engine — execute rules from SysValRule at runtime",
+      "Context variable resolution — resolve system variables in rules/expressions",
+      "PO (Presentation Object) validation — validation against metadata",
+      "PO lifecycle hooks — before/after create, update, delete",
+      "PO factory/class resolution — instantiate correct handler from metadata"
+    ],
+    "tests": {
+      "unitTests": "All runtime services unit tested",
+      "cacheTests": "Cache invalidation graph tested — stale metadata not served after commit",
+      "integrationTests": [
+        "Metadata CRUD round-trip through runtime service",
+        "Type validation rejects invalid types",
+        "Reference validation rejects invalid FK values",
+        "ValRule evaluation passes/fails correctly",
+        "Cache invalidation on metadata change"
+      ],
+      "regressionTests": "Phase 1 schema and seed data tests still pass"
+    },
+    "hldCompliance": "Matches FINAL-MASTER-HLD-LLD-v2.md Section 8",
+    "security": [
+      "ValRule evaluation sandboxed — no arbitrary code execution",
+      "Context variables resolved from trusted metadata only",
+      "Tenant/org predicates applied to all runtime CRUD"
+    ]
+  }
+}

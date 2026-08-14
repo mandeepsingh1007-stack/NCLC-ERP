@@ -1,60 +1,109 @@
 # Active Agent State
 
-## Current phase
-PHASE-0 (Gate Verification Complete)
+## Current Phase
+1 — Dictionary Foundation
 
-## Current objective
-Repository bootstrap — toolchain, solution structure, CI baseline, testing harness.
-Phase 0 Gate Verification: 2026-08-14.
+## Phase Status
+implementation_complete / ci_pending
 
-## Phase 0 Gate Verification Results
+## Current Task
+Agentic Engineering Control Plane Upgrade — NOT application implementation.
 
-### PASS
-1. .NET solution builds successfully — `dotnet build` → 0 errors, 0 warnings
-2. All backend tests pass — 2/2 in Platform.Tests.Core
-3. PostgreSQL 18.6 installed, reachable, and responding — `psql -h 127.0.0.1 -U postgres`
-4. Redis installed as Windows service, responding with PONG
-5. React frontend installs and builds successfully
-6. Git working tree is clean (untracked, not committed)
-7. GitHub Actions workflow valid
-8. HLD/LLD at authoritative location
-9. CLAUDE.md, 9 agents, 14 skills, 5 hooks all present
+## Gate Status
+ci_pending — phase-gate checks 1-9 PASS, integration tests and CI pending
 
-### FAIL
-- None
+## Completed
+- Phase 0: APPROVED (engineering foundation)
+- Phase 1 implementation: COMPLETE
+  - 8 tables created matching HLD/LLD Section 7
+  - FK ordering fixed (SysTable before SysReferenceTable)
+  - UNIQUE constraints on SysReference.Name, SysValRule.Name added
+  - Seed data idempotent (ON CONFLICT DO NOTHING)
+  - 8 Dapper repositories, singleton DI, stateless
+  - Dapper TypeHandlers for enum round-trip
+  - DbUp integration in Platform.API
+- Phase 1 verification: ALL 15 CHECKS PASS
+  - DDL migration executes, idempotent
+  - Seed data executes, idempotent
+  - 8 tables exist, correct columns/types/defaults
+  - SysColumn.SysReference_ID NOT NULL (4-concept separation)
+  - 8 FK constraints valid, no orphans
+  - 6 indexes, 6 UNIQUE constraints
+  - 22 SysColumn fields match HLD/LLD
+  - Seed counts: 11/2/7/27/1
+- Phase 1 unit tests: 24/24 PASS
+- Phase 1 integration tests: 2 pending (Docker unavailable locally)
+- **Agentic Control Plane Upgrade: COMPLETE**
+  - Orchestrator agent created
+  - Phase-gate agent created (READ-ONLY)
+  - phase-state.json created (status: ci_pending)
+  - 8 phase gate definitions created (phase-0 through phase-7)
+  - Deterministic phase-gate.ps1 script created
+  - HLD compliance check script created
+  - Schema contract tests created (30+ tests)
+  - Dangerous command guard hook created
+  - Phase stop gate hook updated (stop-check.ps1)
+  - Phase transition gate script created
+  - phase-implement skill updated with mandatory workflow
+  - CLAUDE.md updated with 20 non-negotiable rules
+  - CI pipeline updated with PostgreSQL service + schema contract tests
+  - Pre/post compact hooks updated with phase state persistence
+  - ACTIVE.md format updated
 
-### WARNINGS
-- NCLC database does not exist yet (empty install) — will be created by DbUp migrations in Phase 1
-- Integration test project has no tests yet (placeholder)
-- Hangfire `UsePostgreSqlStorage(string)` API is obsolete in 2.0+ (using 1.20.8, works fine)
+## In Progress
+- Awaiting CI verification of Phase 1 integration + schema contract tests
 
-### SECURITY ISSUES
-- `appsettings.json` has `CHANGE_ME` placeholder — safe for git
-- No secrets committed (empty git history)
-- `.env` files excluded via `.gitignore`, `.env.example` intentionally tracked
+## Failed Checks
+None — all local checks pass.
 
-### MISSING ITEMS
-- No commits yet — working tree untracked
-- DbUp NuGet package not yet added (ADR-003 decided, Phase 1)
-- JWT/Auth not implemented yet (ADR-002 decided, Phase 5)
+## CI Pending
+- Integration tests (require PostgreSQL service in CI)
+- Schema contract tests (require PostgreSQL in CI)
+- Phase-gate.ps1 full run in CI environment
 
-### EXACT COMMANDS EXECUTED (Gate Verification)
-1. `dotnet build` → Build succeeded, 0 errors, 0 warnings
-2. `dotnet test --no-build` → 2 passed, 0 failed
-3. `"C:/Program Files/PostgreSQL/18/bin/psql.exe" --version` → PostgreSQL 18.6
-4. `PGPASSWORD=Era@123 psql -h 127.0.0.1 -p 5432 -U postgres -d postgres` → version() returned 18.6
-5. `PGPASSWORD=Era@123 psql -h 127.0.0.1 -U postgres -c "\l"` → NCLC database does NOT exist yet
-6. `/c/redis/redis-cli.exe ping` → PONG
-7. `npm run build` (frontend) → Build successful
-8. `git status --short` → all untracked (no commits)
-9. YAML validation of `.github/workflows/ci.yml` → valid
+## ADRs
+- See docs/adr/ for existing ADRs. No new ADRs needed for this control-plane upgrade.
 
-### TEST RESULTS
-- Platform.Tests.Core: 2/2 passed
-- Platform.Tests.Integration: 0 tests (empty, ready for Phase 1+)
+## Files Changed (Control Plane Upgrade)
+- CREATED: .claude/agents/orchestrator.md
+- CREATED: .claude/agents/phase-gate.md
+- CREATED: docs/agent-state/phase-state.json
+- CREATED: docs/agent-state/phase-gates/phase-0.json through phase-7.json
+- CREATED: scripts/phase-gate.ps1
+- CREATED: scripts/hld-compliance.ps1
+- CREATED: scripts/phase-transition.ps1
+- CREATED: tests/Platform.Tests.SchemaContract/ (schema contract test project)
+- CREATED: .claude/hooks/dangerous-command.ps1
+- MODIFIED: .claude/hooks/stop-check.ps1 (phase stop gate)
+- MODIFIED: .claude/hooks/precompact.ps1 (phase state persistence)
+- MODIFIED: .claude/hooks/postcompact.ps1 (phase state reload)
+- MODIFIED: .claude/skills/phase-implement/SKILL.md (mandatory workflow)
+- MODIFIED: CLAUDE.md (20 non-negotiable rules, gate architecture)
+- MODIFIED: .github/workflows/ci.yml (PostgreSQL service, schema contract tests)
 
-### RECOMMENDATION
-**APPROVED — Phase 0 is complete. Proceed to Phase 1.**
+## Tests
+- Unit tests: 24/24 PASS
+- Schema contract tests: 30+ tests created (awaiting CI run)
+- Integration tests: 2 pending (Docker unavailable)
 
-PostgreSQL 18.6 is running and reachable. Redis is running as a Windows service.
-The NCLC database needs to be created — this will be done automatically by DbUp migrations in Phase 1.
+## Security
+- Dangerous command guard hook created (blocks DROP, TRUNCATE, push --force, etc.)
+- Seed data ON CONFLICT DO NOTHING (no orphan FKs)
+- All values parameterized in repository layer
+- WhereClause/OrderByClause/Code columns flagged as future SQL injection risk
+
+## Code Review
+- All 15 verification checks pass
+- FK ordering corrected
+- Dapper TypeHandlers registered
+- Model types match DB schema
+- Build: 0 errors
+
+## Next Actions
+1. Push changes to GitHub
+2. CI runs: build + unit tests + schema contract tests + frontend build
+3. If CI passes: phase-gate returns PASS, Phase 1 marked accepted, Phase 2 unlocked
+4. If CI fails: fix failing tests, rerun CI
+
+## Resume Instructions
+Read CLAUDE.md, docs/agent-state/phase-state.json, ACTIVE.md, and relevant phase gate before continuing. Never start Phase 2 until phase-state.json status == "accepted" and gateStatus == "pass".

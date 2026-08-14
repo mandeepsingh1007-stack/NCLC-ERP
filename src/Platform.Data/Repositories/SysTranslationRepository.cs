@@ -3,18 +3,17 @@ using Platform.Core.Metadata;
 
 namespace Platform.Data.Repositories;
 
-public class SysTranslationRepository : ISysRepository<SysTranslation>
+/// <summary>
+/// Repository for SysTranslation with composite key (SysElementId, LanguageCode).
+/// Uses ISysCompositeRepository since composite keys don't map to GetById(int).
+/// </summary>
+public class SysTranslationRepository : ISysCompositeRepository<SysTranslation>
 {
     private readonly string _connectionString;
 
     public SysTranslationRepository(string connectionString)
     {
         _connectionString = connectionString;
-    }
-
-    public SysTranslation? GetById(int id)
-    {
-        throw new NotImplementedException("Translations are queried by SysElementId + LanguageCode");
     }
 
     public IEnumerable<SysTranslation> GetAll()
@@ -41,7 +40,7 @@ public class SysTranslationRepository : ISysRepository<SysTranslation>
         return connection.Query<SysTranslation>(sql, new { SysElementId = sysElementId });
     }
 
-    public int Create(SysTranslation entity)
+    int ISysCompositeRepository<SysTranslation>.Create(SysTranslation entity)
     {
         using var connection = new Npgsql.NpgsqlConnection(_connectionString);
         const string sql = """
@@ -62,7 +61,7 @@ public class SysTranslationRepository : ISysRepository<SysTranslation>
         });
     }
 
-    public void Update(SysTranslation entity)
+    void ISysCompositeRepository<SysTranslation>.Update(SysTranslation entity)
     {
         using var connection = new Npgsql.NpgsqlConnection(_connectionString);
         const string sql = """
@@ -83,13 +82,14 @@ public class SysTranslationRepository : ISysRepository<SysTranslation>
         });
     }
 
-    public void Delete(int id)
+    void ISysCompositeRepository<SysTranslation>.Delete(params object[] keyValues)
     {
-        throw new NotImplementedException("Use DeleteByElementAndLanguage overload");
-    }
+        if (keyValues.Length < 2)
+            throw new ArgumentException("Composite key requires SysElementId and LanguageCode.", nameof(keyValues));
 
-    public void DeleteByElementAndLanguage(int sysElementId, string languageCode)
-    {
+        var sysElementId = Convert.ToInt32(keyValues[0]);
+        var languageCode = Convert.ToString(keyValues[1]);
+
         using var connection = new Npgsql.NpgsqlConnection(_connectionString);
         const string sql = """
             DELETE FROM "SysElement_Trl"

@@ -38,11 +38,11 @@ public class SysElementRepository : ISysRepository<SysElement>
     {
         using var connection = new Npgsql.NpgsqlConnection(_connectionString);
         const string sql = """
-            INSERT INTO "SysElement" ("ColumnName", "Name", "Description", "Help", "IsActive", "CreatedBy", "CreatedDate", "UpdatedBy", "UpdatedDate")
-            VALUES (@ColumnName, @Name, @Description, @Help, @IsActive, 0, NOW(), 0, NOW())
+            INSERT INTO "SysElement" ("ColumnName", "Name", "Description", "Help", "IsActive")
+            VALUES (@ColumnName, @Name, @Description, @Help, @IsActive)
             RETURNING "SysElement_ID"
             """;
-        return connection.Execute(sql, new
+        return connection.QuerySingle<int>(sql, new
         {
             entity.ColumnName,
             entity.Name,
@@ -61,8 +61,7 @@ public class SysElementRepository : ISysRepository<SysElement>
                 "Name" = @Name,
                 "Description" = @Description,
                 "Help" = @Help,
-                "IsActive" = @IsActive,
-                "UpdatedDate" = NOW()
+                "IsActive" = @IsActive
             WHERE "SysElement_ID" = @SysElementId
             """;
         connection.Execute(sql, new
