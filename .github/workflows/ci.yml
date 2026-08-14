@@ -41,10 +41,15 @@ jobs:
     - name: Test (Core — Unit Tests)
       run: dotnet test tests/Platform.Tests.Core/Platform.Tests.Core.csproj --no-build --verbosity normal
 
+    - name: Check PostgreSQL connectivity
+      run: pg_isready -h localhost -p 5432
+      env:
+        PGPASSWORD: Era@123
+
     - name: Test (Schema Contract)
       env:
         NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=Era@123
-      run: dotnet test tests/Platform.Tests.SchemaContract/Platform.Tests.SchemaContract.csproj --verbosity normal
+      run: dotnet test tests/Platform.Tests.SchemaContract/Platform.Tests.SchemaContract.csproj --no-build --verbosity normal
 
     - name: Test (Integration — requires PostgreSQL service)
       env:
