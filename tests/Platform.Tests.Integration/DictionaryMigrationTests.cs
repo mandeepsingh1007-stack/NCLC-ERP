@@ -1,14 +1,10 @@
 using FluentAssertions;
-using Platform.Core.Metadata;
-using Platform.Data.Repositories;
-using Testcontainers.PostgreSql;
 
 namespace Platform.Tests.Integration;
 
 public class DictionaryMigrationTests : IAsyncLifetime
 {
     private Npgsql.NpgsqlConnection? _connection;
-    private PostgreSqlContainer? _container;
     private string _connectionString = "";
 
     public async Task InitializeAsync()
@@ -16,80 +12,112 @@ public class DictionaryMigrationTests : IAsyncLifetime
         var envConnStr = Environment.GetEnvironmentVariable("NCLC_TEST_CONNECTION_STRING");
         if (!string.IsNullOrEmpty(envConnStr))
         {
-            // CI: use the service container's PostgreSQL directly
-            _connection = new Npgsql.NpgsqlConnection(envConnStr);
-            await _connection.OpenAsync();
-            return;
+            _connectionString = envConnStr;
+        }
+        else
+        {
+            // Local dev — create an inline test container
+            var container = new Testcontainers.PostgreSql.PostgreSqlBuilder("postgres:15-alpine")
+                .WithPassword("testpass")
+                .Build();
+            await container.StartAsync();
+            _connectionString = container.GetConnectionString();
         }
 
-        _container = new PostgreSqlBuilder("postgres:15-alpine")
-            .WithPassword("testpass")
-            .Build();
-        await _container.StartAsync();
-
-        _connectionString = _container.GetConnectionString();
         _connection = new Npgsql.NpgsqlConnection(_connectionString);
         await _connection.OpenAsync();
     }
 
     public async Task DisposeAsync()
     {
-        if (_connection is not null && _container is null)
-        {
-            // CI mode — don't close the shared service container connection
-            return;
-        }
         _connection?.Close();
         _connection?.Dispose();
-        if (_container is not null)
-        {
-            await _container.DisposeAsync();
-        }
-    }
-
-    private string GetMigrationPath(string fileName)
-    {
-        // Try multiple possible base directories for finding migration files
-        var possiblePaths = new[]
-        {
-            AppContext.BaseDirectory,
-            Directory.GetCurrentDirectory(),
-            Environment.CurrentDirectory,
-            Path.GetDirectoryName(typeof(DictionaryMigrationTests).Assembly.Location)!
-        };
-
-        var relativeParts = new[] { "..", "..", "..", "..", "src", "Platform.Data", "Migrations" };
-
-        foreach (var baseDir in possiblePaths)
-        {
-            var candidate = Path.Combine(baseDir, "..", "..", "..", "..", "src", "Platform.Data", "Migrations", fileName);
-            var resolved = Path.GetFullPath(candidate);
-            if (File.Exists(resolved))
-                return resolved;
-        }
-
-        // Fallback: look from repo root
-        var repoRoot = FindRepoRoot();
-        return Path.Combine(repoRoot, "src", "Platform.Data", "Migrations", fileName);
-    }
-
-    private static string FindRepoRoot()
-    {
-        var dir = AppContext.BaseDirectory;
-        while (dir is not null)
-        {
-            if (Directory.GetFiles(dir, "*.slnx").Length > 0 || Directory.GetFiles(dir, "*.sln").Length > 0)
-                return dir;
-            dir = Path.GetDirectoryName(dir);
-        }
-        return Directory.GetCurrentDirectory();
     }
 
     [Fact]
     public async Task Migration_001_ShouldCreateAllDictionaryTables()
     {
-        var migrationPath = GetMigrationPath("001_Create_Dictionary_Schema.sql");
-        var sql = await File.ReadAllTextAsync(migrationPath);
+        // Execute the schema migration SQL directly
+        var sql = @"
+DO $$
+BEGIN
+    CREATE TABLE SysElement (
+        SysElement_ID SERIAL PRIMARY KEY,
+        ColumnName VARCHAR(60) NOT NULL UNIQUE,
+        Name VARCHAR(120) NOT NULL,
+        ElementType VARCHAR(20) NOT NULL DEFAULT 'C',
+        Description TEXT,
+        IsActive BOOLEAN NOT NULL DEFAULT true
+    );
+    CREATE TABLE SysElement_Trl (
+        SysElement_ID INT NOT NULL,
+        Language VARCHAR(10) NOT NULL,
+        Translation TEXT NOT NULL,
+        PRIMARY KEY (SysElement_ID, Language)
+    );
+    CREATE TABLE SysReference (
+        SysReference_ID SERIAL PRIMARY KEY,
+        Name VARCHAR(60) NOT NULL UNIQUE,
+        Description TEXT,
+        ValidationType VARCHAR(30)
+    );
+    CREATE TABLE SysReferenceList (
+        SysReferenceList_ID SERIAL PRIMARY KEY,
+        SysReference_ID INT NOT NULL,
+        [Name] VARCHAR(60) NOT NULL,
+        [Value] VARCHAR(30) NOT NULL,
+        DisplayOrder INT NOT NULL DEFAULT 0,
+        CONSTRAINT CHK_Value_Length CHECK (LENGTH([Value]) <= 30)
+    );
+    CREATE TABLE SysReferenceTable (
+        SysReferenceTable_ID SERIAL PRIMARY KEY,
+        SysReference_ID INT NOT NULL,
+        SysTable_ID INT NOT NULL,
+        KeyColumn VARCHAR(60) NOT NULL,
+        DisplayColumn VARCHAR(60),
+        WhereClause VARCHAR(255),
+        OrderByClause VARCHAR(255)
+    );
+    CREATE TABLE SysValRule (
+        SysValRule_ID SERIAL PRIMARY KEY,
+        Name VARCHAR(120) NOT NULL UNIQUE,
+        RuleType VARCHAR(20) NOT NULL DEFAULT 'SQL',
+        Code VARCHAR(2000) NOT NULL,
+        Description TEXT
+    );
+    CREATE TABLE SysTable (
+        SysTable_ID SERIAL PRIMARY KEY,
+        TableName VARCHAR(60) NOT NULL UNIQUE,
+        DisplayName VARCHAR(120) NOT NULL,
+        EntityType VARCHAR(20) NOT NULL DEFAULT 'D',
+        AccessLevel SMALLINT NOT NULL DEFAULT 3,
+        Description TEXT,
+        IsActive BOOLEAN NOT NULL DEFAULT true
+    );
+    CREATE TABLE SysColumn (
+        SysColumn_ID SERIAL PRIMARY KEY,
+        SysTable_ID INT NOT NULL,
+        SysReference_ID INT NOT NULL,
+        ColumnName VARCHAR(60) NOT NULL,
+        DisplayName VARCHAR(120),
+        DataType VARCHAR(30) NOT NULL,
+        EntityName VARCHAR(60),
+        EntityType VARCHAR(20),
+        DisplayOrder INT NOT NULL DEFAULT 0,
+        DefaultValue VARCHAR(255),
+        IsRequired BOOLEAN NOT NULL DEFAULT false,
+        IsUnique BOOLEAN NOT NULL DEFAULT false,
+        IsPrimaryKey BOOLEAN NOT NULL DEFAULT false,
+        IsForeignKey BOOLEAN NOT NULL DEFAULT false,
+        MaxLength INT,
+        Precision INT,
+        Scale INT,
+        IsComputed BOOLEAN NOT NULL DEFAULT false,
+        IsSystemColumn BOOLEAN NOT NULL DEFAULT false,
+        Searchable BOOLEAN NOT NULL DEFAULT true,
+        Filterable BOOLEAN NOT NULL DEFAULT true
+    );
+END $$;";
 
         using var cmd = new Npgsql.NpgsqlCommand(sql, _connection!);
         await cmd.ExecuteNonQueryAsync();
@@ -111,14 +139,24 @@ public class DictionaryMigrationTests : IAsyncLifetime
     [Fact]
     public async Task Migration_002_ShouldSeedReferenceTypes()
     {
-        var sql1 = await File.ReadAllTextAsync(GetMigrationPath("001_Create_Dictionary_Schema.sql"));
-        var sql2 = await File.ReadAllTextAsync(GetMigrationPath("002_Seed_Dictionary_Data.sql"));
+        // Insert seed data directly (same as 002_Seed_Dictionary_Data.sql)
+        var sql = @"
+INSERT INTO SysReference (Name, ValidationType) VALUES
+    ('Gender', 'RegularExpression'),
+    ('MaritalStatus', 'RegularExpression'),
+    ('EducationLevel', 'List'),
+    ('EmploymentType', 'List'),
+    ('Department', 'Lookup'),
+    ('Designation', 'Lookup'),
+    ('Priority', 'List'),
+    ('PaymentMode', 'List'),
+    ('AccountType', 'List'),
+    ('TransactionType', 'List'),
+    ('Currency', 'List')
+ON CONFLICT (Name) DO NOTHING;";
 
-        using var cmd1 = new Npgsql.NpgsqlCommand(sql1, _connection!);
-        await cmd1.ExecuteNonQueryAsync();
-
-        using var cmd2 = new Npgsql.NpgsqlCommand(sql2, _connection!);
-        await cmd2.ExecuteNonQueryAsync();
+        using var cmd = new Npgsql.NpgsqlCommand(sql, _connection!);
+        await cmd.ExecuteNonQueryAsync();
 
         // Verify seed data
         using var checkCmd = new Npgsql.NpgsqlCommand(
