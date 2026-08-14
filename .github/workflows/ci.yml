@@ -46,6 +46,13 @@ jobs:
       env:
         PGPASSWORD: Era@123
 
+    - name: Run migrations via psql
+      env:
+        PGPASSWORD: Era@123
+      run: |
+        psql -h localhost -p 5432 -U postgres -d nclc -f src/Platform.Data/Migrations/001_Create_Dictionary_Schema.sql
+        psql -h localhost -p 5432 -U postgres -d nclc -f src/Platform.Data/Migrations/002_Seed_Dictionary_Data.sql
+
     - name: Test (Schema Contract)
       env:
         NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=Era@123
