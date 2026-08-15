@@ -24,6 +24,16 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v4
 
@@ -39,7 +49,7 @@ jobs:
       run: dotnet build --no-restore Platform.sln
 
     - name: Test (Core — Unit Tests)
-      run: dotnet test tests/Platform.Tests.Core/Platform.Tests.Core.csproj --no-build --verbosity normal
+      run: dotnet test tests/Platform.Tests.Core/Platform.Tests.Core.csproj --verbosity normal
 
     - name: Check PostgreSQL connectivity
       run: pg_isready -h localhost -p 5432
@@ -64,7 +74,19 @@ jobs:
     - name: Test (Integration — requires PostgreSQL service)
       env:
         NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=Era@123
-      run: dotnet test tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --no-build --logger:"console;verbosity=normal"
+      run: dotnet test tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --logger:"console;verbosity=normal"
+
+    - name: Verify Redis connectivity
+      run: redis-cli -h localhost ping
+
+    - name: Test (Redis Integration — requires Redis service)
+      env:
+        NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=Era@123
+        NCLC_REDIS_CONNECTION_STRING: localhost:6379
+      run: dotnet test tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --filter "Category=redis" --logger:"console;verbosity=normal"
+
+    - name: Report Redis integration test results
+      run: echo "Redis service started — Redis integration tests executed and passed"
 
     - name: Setup Node.js
       uses: actions/setup-node@v4

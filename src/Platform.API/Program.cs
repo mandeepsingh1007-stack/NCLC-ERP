@@ -5,7 +5,10 @@ using Hangfire.PostgreSql;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using DbUp;
 using Platform.Data.Repositories;
+using Platform.Extensions;
 using Platform.Core.Metadata;
+using Platform.Core.Runtime;
+using Platform.Metadata.Factory;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -28,11 +31,16 @@ try
     var connectionString = builder.Configuration.GetConnectionString("Default")
         ?? throw new InvalidOperationException(
             "No connection string 'Default' found. Configure PostgreSQL before starting.");
-    builder.Services.AddHangfire(config => config.UsePostgreSqlStorage(connectionString));
+    builder.Services.AddHangfire(config => config.UsePostgreSqlStorage(options =>
+        options.UseNpgsqlConnection(connectionString)));
     builder.Services.AddHangfireServer();
 
-    // Add memory cache (metadata cache)
-    builder.Services.AddMemoryCache();
+    // Add memory cache (metadata cache) — size-limited to prevent unbounded growth
+    builder.Services.AddMemoryCache(options =>
+    {
+        // 100 MB hard limit on IMemoryCache entries
+        options.SizeLimit = 100_000_000;
+    });
 
     // Register Dictionary repositories (singleton — stateless Dapper repos, connection string resolved once at startup)
     builder.Services.AddSingleton<SysElementRepository>(sp => new SysElementRepository(connectionString));
@@ -74,6 +82,41 @@ try
         app.UseSwagger();
         app.UseSwaggerUI();
     }
+
+    // Phase 2: Register metadata runtime services
+    var metadataConnectionString = connectionString;
+
+    // IMetadataGraph — singleton, loads all metadata at construction
+    builder.Services.AddSingleton<IMetadataGraph>(sp =>
+        new MetadataGraph(metadataConnectionString));
+
+    // Register all Platform runtime services (cache, validators, etc.)
+    // IPOFactory and POLifecycleManager are registered separately as they depend on Platform.Metadata
+    builder.Services.AddPlatformRuntime(redisConnection);
+
+    // Override ValRuleEngine registration with table allowlist from MetadataGraph
+    // Remove the default ValRuleEngine registration from AddPlatformRuntime
+    var valRuleDesc = builder.Services.FirstOrDefault(d => d.ServiceType == typeof(IValRuleEngine));
+    if (valRuleDesc != null)
+    {
+        builder.Services.Remove(valRuleDesc);
+    }
+
+    // Register ValRuleEngine with table allowlist from MetadataGraph
+    builder.Services.AddTransient<IValRuleEngine, ValRuleEngine>(sp =>
+    {
+        var graph = sp.GetRequiredService<IMetadataGraph>();
+        var connStr = builder.Configuration.GetConnectionString("Default")
+            ?? throw new InvalidOperationException("No connection string 'Default' found.");
+        var tables = graph.GetTableNames();
+        return new ValRuleEngine(connStr, tables);
+    });
+
+    // IPOFactory — singleton
+    builder.Services.AddSingleton<IPOFactory, POFactory>();
+
+    // POLifecycleManager — transient
+    builder.Services.AddTransient<POLifecycleManager>();
 
     app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 

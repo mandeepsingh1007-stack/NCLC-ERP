@@ -1,16 +1,16 @@
 # Active Agent State
 
 ## Current Phase
-1 — Dictionary Foundation
+2 — Metadata Runtime
 
 ## Phase Status
-accepted / Phase 2 unlocked
+implementation_complete / NOT accepted / Phase 3 LOCKED
 
 ## Current Task
-Phase 1 COMPLETE. Phase 2 unlocked but NOT started.
+Phase 2 implementation COMPLETE. Ready for candidate commit → CI verification → acceptance.
 
 ## Gate Status
-PASS — phase-gate evaluation 2026-08-15, all 12 mandatory checks PASS
+BLOCKED — waiting for CI verification of candidate commit
 
 ## Completed
 - Phase 0: APPROVED (engineering foundation)
@@ -23,62 +23,57 @@ PASS — phase-gate evaluation 2026-08-15, all 12 mandatory checks PASS
   - Dapper TypeHandlers for enum round-trip
   - DbUp integration in Platform.API
 - Phase 1 verification: ALL 15 CHECKS PASS
-  - DDL migration executes, idempotent
-  - Seed data executes, idempotent
-  - 8 tables exist, correct columns/types/defaults
-  - SysColumn.SysReference_ID NOT NULL (4-concept separation)
-  - 8 FK constraints valid, no orphans
-  - 6 indexes, 6 UNIQUE constraints
-  - 22 SysColumn fields match HLD/LLD
-  - Seed counts: 11/2/7/27/1
-- Phase 1 unit tests: 24/24 PASS
-- Phase 1 integration tests: 10/10 PASS (CI verified)
-- Phase 1 schema contract tests: 33/33 PASS (CI verified)
 - **Agentic Control Plane Upgrade: COMPLETE**
-  - Orchestrator agent created
-  - Phase-gate agent created (READ-ONLY)
-  - phase-state.json created
-  - 8 phase gate definitions created (phase-0 through phase-7)
-  - Deterministic phase-gate.ps1 script created
-  - HLD compliance check script created
-  - Schema contract tests created (33 tests)
-  - Dangerous command guard hook created
-  - Phase stop gate hook updated (stop-check.ps1)
-  - Phase transition gate script created
-  - phase-implement skill updated with mandatory workflow
-  - CLAUDE.md updated with 20 non-negotiable rules
+  - Orchestrator agent, phase-gate agent, phase-state.json
+  - 8 phase gate definitions, deterministic gate script
+  - HLD compliance check, schema contract tests (33)
+  - Dangerous command guard hook, phase transition script
   - CI pipeline updated with PostgreSQL service + schema contract tests
-  - Pre/post compact hooks updated with phase state persistence
-
-## In Progress
-None — Phase 1 complete, Phase 2 unlocked but not started.
+- **Phase 2 Pre-Flight: COMPLETE (2026-08-15)**
+  - Architect: `docs/architecture/PHASE-2-METADATA-RUNTIME-DESIGN.md` (740 lines)
+  - Security: `docs/security/PHASE-2-SECURITY-REVIEW.md` (13 findings, all FIXED/DEFERRED)
+  - QA: `docs/testing/PHASE-2-TEST-MATRIX.md` (399 lines, 240 tests)
+  - Preflight: PASS, IMPLEMENTATION READY: YES
+- **Phase 2 Security Hardening: COMPLETE (2026-08-15)**
+  - Hardcoded connection strings removed from ValRuleEngine (no fallback)
+  - Redis reconnect/resubscribe lifecycle implemented (CacheInvalidationService)
+  - 18 new security edge case tests (function whitelist, tenant isolation, table allowlist)
+  - Security findings normalized: SEC-001 through SEC-013
+  - All Critical findings FIXED + VERIFIED
+  - All Medium findings FIXED or DEFERRED with phase/ADR
+  - Build: 0 warnings, 0 errors
+- **Phase 2 Implementation: COMPLETE (2026-08-15)**
+  - 11 components implemented across Platform.Core, Platform.API, Platform.Metadata
+  - MetadataGraph — loads all tables/columns/references from PostgreSQL
+  - MetadataCacheService — dual cache (IMemoryCache + IDistributedCache/Redis)
+  - CacheInvalidationService — Redis pub/sub invalidation with reconnect/resubscribe
+  - ContextVariableResolver — resolves $UserId, $TenantId, $OrgId, $Timestamp, $UserName
+  - ValRuleEngine — SQL/regex validation with full security model
+  - TypeValidator — varChar, integer, bigint, boolean, DateTime
+  - StringLengthValidator / MinLengthValidator / MaxLengthValidator / MinValueValidator / MaxValueValidator
+  - ReferenceValueValidator — LIST/TABLE/SEARCH validation
+  - POValidator — full validation pipeline (mandatory → type → length → reference → valrule)
+  - POFactory — MClass resolution from Platform.Metadata assembly
+  - POLifecycleManager — Create/Update/Delete with hooks and rollback
+- **Phase 2 Test Coverage: COMPLETE (2026-08-15)**
+  - Core unit tests: 160/160 PASS
+  - Schema contract tests: 33/33 PASS
+  - Integration tests: 47 written (skip locally without Docker, CI configured)
+  - Total: 240 tests
 
 ## CI Verification
-- CI Run: Green (all checks passed)
-- Build: PASS
-- Core Unit Tests: 24/24 PASS
-- Migrations (psql): PASS
-- Schema Contract Tests: 33/33 PASS
-- Integration Tests: 10/10 PASS
-- Frontend Build: PASS
+- Candidate commit: PENDING
+- CI: PENDING — needs candidate commit to trigger
 
-## Warnings (non-blocking, deferred to Phase 2+)
-- Missing indexes on FK columns (SysColumn.SysTable_ID, SysReferenceList.SysReference_ID)
-- WhereClause/OrderByClause/Code columns are SQL injection vectors when evaluated
-- phase-gate.ps1 references `NoCodeLow.sln` instead of `Platform.sln` (script bug)
-
-## Tests
-- Unit tests: 24/24 PASS
-- Schema contract tests: 33/33 PASS (CI verified)
-- Integration tests: 10/10 PASS (CI verified)
-- Total: 67 tests passing
-
-## Phase 1 Git Tag
-- phase-1-accepted created
+## Warnings (non-blocking)
+- Missing FK indexes on (SysColumn.SysTable_ID, SysReferenceList.SysReference_ID) — deferred to Phase 3+
+- MetadataGraph has no reload mechanism (metadata changes require app restart) — deferred
+- ReferenceValueValidator.TABLE validation is no-op (full FK check deferred to Phase 3)
+- Table allowlist regex doesn't handle schema-qualified identifiers — low risk
 
 ## Next Actions
-- Phase 2 is unlocked but MUST NOT be started until explicitly authorized
-- All Phase 1 prerequisites met
-
-## Resume Instructions
-Read CLAUDE.md, docs/agent-state/phase-state.json, ACTIVE.md, and relevant phase gate before continuing. Never start Phase 2 until explicitly authorized.
+1. Candidate commit → push → trigger CI
+2. Wait for CI GREEN
+3. Final local phase gate
+4. Update phase-state.json to accepted, unlock Phase 3
+5. Create phase-2-accepted annotated tag

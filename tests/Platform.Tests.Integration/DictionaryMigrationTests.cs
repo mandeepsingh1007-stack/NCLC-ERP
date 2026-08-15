@@ -172,21 +172,21 @@ public class DictionaryMigrationTests : IAsyncLifetime
             $"SELECT COUNT(*) FROM \"SysReferenceList\" r " +
             $"LEFT JOIN \"SysReference\" s ON r.\"SysReference_ID\" = s.\"SysReference_ID\" " +
             $"WHERE s.\"SysReference_ID\" IS NULL", _connection!);
-        var orphans1 = (long)(await cmd1.ExecuteScalarAsync()!);
+        var orphans1 = Convert.ToInt64(await cmd1.ExecuteScalarAsync()!);
         orphans1.Should().Be(0);
 
         using var cmd2 = new Npgsql.NpgsqlCommand(
             $"SELECT COUNT(*) FROM \"SysReferenceTable\" r " +
             $"LEFT JOIN \"SysReference\" s ON r.\"SysReference_ID\" = s.\"SysReference_ID\" " +
             $"WHERE s.\"SysReference_ID\" IS NULL", _connection!);
-        var orphans2 = (long)(await cmd2.ExecuteScalarAsync()!);
+        var orphans2 = Convert.ToInt64(await cmd2.ExecuteScalarAsync()!);
         orphans2.Should().Be(0);
 
         using var cmd3 = new Npgsql.NpgsqlCommand(
             $"SELECT COUNT(*) FROM \"SysColumn\" c " +
             $"LEFT JOIN \"SysTable\" t ON c.\"SysTable_ID\" = t.\"SysTable_ID\" " +
             $"WHERE t.\"SysTable_ID\" IS NULL", _connection!);
-        var orphans3 = (long)(await cmd3.ExecuteScalarAsync()!);
+        var orphans3 = Convert.ToInt64(await cmd3.ExecuteScalarAsync()!);
         orphans3.Should().Be(0);
     }
 

@@ -6,15 +6,20 @@
 #>
 
 param(
-    [string]$SolutionRoot = $PSScriptRoot
+    [string]$SolutionRoot = ""
 )
+
+# Resolve SolutionRoot to repo root (parent of scripts/)
+if ([string]::IsNullOrEmpty($SolutionRoot)) {
+    $SolutionRoot = Join-Path $PSScriptRoot ".." | Resolve-Path
+}
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $Results = @{}
-$ExitCode = 0
-$CiPending = $false
+$global:CiPending = $false
+$script:GateExitCode = 0
 
 function Test-GateCheck {
     param(
@@ -25,10 +30,10 @@ function Test-GateCheck {
     try {
         $result = & $Test
         $Results[$Name] = $result
-        $status = if ($result -eq $true) { "PASS" } else { "FAIL" }
+        $status = if ($result -eq $true) { "PASS" } elseif ($result -eq "CI_PENDING") { "CI_PENDING" } else { "FAIL" }
         Write-Host "  [$status] $Name"
-        if ($result -ne $true -and $Required) {
-            $ExitCode = 2
+        if ($result -ne $true -and $result -ne "CI_PENDING" -and $Required) {
+            if ($script:GateExitCode -lt 2) { $script:GateExitCode = 2 }
         }
         return $result
     }
@@ -36,7 +41,7 @@ function Test-GateCheck {
         $Results[$Name] = "ERROR: $_"
         Write-Host "  [ERROR] $Name : $_"
         if ($Required) {
-            $ExitCode = 2
+            if ($script:GateExitCode -lt 2) { $script:GateExitCode = 2 }
         }
         return $false
     }
@@ -47,12 +52,43 @@ Write-Host "  PHASE GATE VERIFICATION"
 Write-Host "========================================"
 Write-Host ""
 
+# Helper: run dotnet and return exit code reliably
+function Invoke-Dotnet {
+    param(
+        [string]$DotnetArgs
+    )
+    $outputFile = Join-Path $env:TEMP "nclc-gate-$([guid]::NewGuid().ToString('N')).txt"
+    $errFile = Join-Path $env:TEMP "nclc-gate-$([guid]::NewGuid().ToString('N'))-err.txt"
+    $startArgs = @{
+        FilePath = "dotnet"
+        ArgumentList = $DotnetArgs
+        NoNewWindow = $true
+        Wait = $true
+        PassThru = $true
+        RedirectStandardOutput = $outputFile
+        RedirectStandardError = $errFile
+    }
+    $process = Start-Process @startArgs
+    $rc = $process.ExitCode
+
+    if ($rc -eq 0) {
+        $outputs = Get-Content $outputFile -ErrorAction SilentlyContinue
+        Write-Host "    $outputs"
+    } else {
+        $errors = Get-Content $errFile -ErrorAction SilentlyContinue
+        Write-Host "    $errors"
+    }
+
+    Remove-Item $outputFile, $errFile -ErrorAction SilentlyContinue
+    return $rc
+}
+
 # --------------------------------------------------
-# Check 1: Git status — no uncommitted changes in production
+# Check 1: Git status
 # --------------------------------------------------
 Write-Host "[1/8] Git status..."
 Test-GateCheck "GIT" {
-    $status = & git status --porcelain 2>$null
+    $status = & git status --porcelain 2>&1
     return -not $status
 }
 
@@ -61,10 +97,9 @@ Test-GateCheck "GIT" {
 # --------------------------------------------------
 Write-Host "[2/8] .NET restore..."
 Test-GateCheck "DOTNET_RESTORE" {
-    $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
-    if (-not $dotnet) { return $false }
-    $result = dotnet restore "$SolutionRoot/NoCodeLow.sln" > $null 2>&1
-    return ($LASTEXITCODE -eq 0)
+    $slnPath = Join-Path $SolutionRoot "Platform.sln"
+    $rc = Invoke-Dotnet -DotnetArgs "restore `"$slnPath`""
+    return ($rc -eq 0)
 }
 
 # --------------------------------------------------
@@ -72,25 +107,23 @@ Test-GateCheck "DOTNET_RESTORE" {
 # --------------------------------------------------
 Write-Host "[3/8] .NET build..."
 Test-GateCheck "BUILD" {
-    $result = dotnet build "$SolutionRoot/NoCodeLow.sln" --no-restore > $null 2>&1
-    return ($LASTEXITCODE -eq 0)
+    $slnPath = Join-Path $SolutionRoot "Platform.sln"
+    $rc = Invoke-Dotnet -DotnetArgs "build `"$slnPath`" --verbosity quiet"
+    return ($rc -eq 0)
 }
 
 # --------------------------------------------------
-# Check 4: Unit tests
+# Check 4: Unit tests (exclude Integration and SchemaContract — they need DB)
 # --------------------------------------------------
 Write-Host "[4/8] Unit tests..."
 Test-GateCheck "UNIT_TESTS" {
-    # Find test projects
-    $testProjects = Get-ChildItem -Path "$SolutionRoot/tests" -Filter "*.Tests.*.csproj" -Recurse -ErrorAction SilentlyContinue
+    $testProjects = Get-ChildItem -Path (Join-Path $SolutionRoot "tests") -Filter "*.Tests.Core*.csproj" -Recurse -ErrorAction SilentlyContinue
     if (-not $testProjects) { return $false }
 
     $allPassed = $true
     foreach ($proj in $testProjects) {
-        $result = dotnet test $proj.FullName --no-build --verbosity quiet > $null 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            $allPassed = $false
-        }
+        $rc = Invoke-Dotnet -DotnetArgs "test `"$($proj.FullName)`" --verbosity quiet --no-build"
+        if ($rc -ne 0) { $allPassed = $false }
     }
     return $allPassed
 }
@@ -100,26 +133,38 @@ Test-GateCheck "UNIT_TESTS" {
 # --------------------------------------------------
 Write-Host "[5/8] Integration tests..."
 Test-GateCheck "INTEGRATION_TESTS" {
-    # Check if Docker is available
-    $dockerTest = docker info > $null 2>&1
-    $dockerAvailable = ($LASTEXITCODE -eq 0)
-
-    if (-not $dockerAvailable) {
-        Write-Host "    Docker not available — integration tests CI_PENDING"
-        $global:CiPending = $true
-        return $true  # Don't block — CI will run these
+    try {
+        $dockerOutputFile = Join-Path $env:TEMP "nclc-docker-test.txt"
+        $dockerErrFile = Join-Path $env:TEMP "nclc-docker-test-err.txt"
+        $startArgs = @{
+            FilePath = "docker"
+            ArgumentList = "info"
+            NoNewWindow = $true
+            Wait = $true
+            PassThru = $true
+            RedirectStandardOutput = $dockerOutputFile
+            RedirectStandardError = $dockerErrFile
+        }
+        $process = Start-Process @startArgs
+        $dockerAvailable = ($process.ExitCode -eq 0)
+        Remove-Item $dockerOutputFile, $dockerErrFile -ErrorAction SilentlyContinue
+    } catch {
+        $dockerAvailable = $false
     }
 
-    # Run integration test projects
-    $integrationProjects = Get-ChildItem -Path "$SolutionRoot/tests" -Filter "*Integration*.csproj" -Recurse -ErrorAction SilentlyContinue
-    if (-not $integrationProjects) { return $true }  # No integration tests — skip
+    if (-not $dockerAvailable) {
+        Write-Host "    Docker not available - integration tests CI_PENDING"
+        $global:CiPending = $true
+        return "CI_PENDING"
+    }
+
+    $integrationProjects = Get-ChildItem -Path (Join-Path $SolutionRoot "tests") -Filter "*Integration*.csproj" -Recurse -ErrorAction SilentlyContinue
+    if (-not $integrationProjects) { return $true }
 
     $allPassed = $true
     foreach ($proj in $integrationProjects) {
-        $result = dotnet test $proj.FullName --verbosity quiet > $null 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            $allPassed = $false
-        }
+        $rc = Invoke-Dotnet -DotnetArgs "test `"$($proj.FullName)`" --verbosity quiet --no-build"
+        if ($rc -ne 0) { $allPassed = $false }
     }
     return $allPassed
 }
@@ -129,11 +174,24 @@ Test-GateCheck "INTEGRATION_TESTS" {
 # --------------------------------------------------
 Write-Host "[6/8] Frontend build..."
 Test-GateCheck "FRONTEND_BUILD" {
-    $frontendDir = "$SolutionRoot/frontend"
-    if (-not (Test-Path "$frontendDir/package.json")) { return $true }  # No frontend
+    $frontendDir = Join-Path $SolutionRoot "frontend"
+    if (-not (Test-Path (Join-Path $frontendDir "package.json"))) { return $true }
 
-    $result = Set-Location $frontendDir; npm run build > $null 2>&1
-    return ($LASTEXITCODE -eq 0)
+    $outputFile = Join-Path $env:TEMP "nclc-frontend-build.txt"
+    $errFile = Join-Path $env:TEMP "nclc-frontend-build-err.txt"
+    $cmdLine = "/c cd /d `"$frontendDir`" && npm run build"
+    $startArgs = @{
+        FilePath = "cmd"
+        ArgumentList = $cmdLine
+        NoNewWindow = $true
+        Wait = $true
+        PassThru = $true
+        RedirectStandardOutput = $outputFile
+        RedirectStandardError = $errFile
+    }
+    $process = Start-Process @startArgs
+    Remove-Item $outputFile -ErrorAction SilentlyContinue
+    return ($process.ExitCode -eq 0)
 }
 
 # --------------------------------------------------
@@ -141,7 +199,6 @@ Test-GateCheck "FRONTEND_BUILD" {
 # --------------------------------------------------
 Write-Host "[7/8] Migration verification..."
 Test-GateCheck "MIGRATIONS" {
-    # Check that migration files exist
     $migrationsDir = "$SolutionRoot/src/Platform.Data/Migrations"
     $migrationFiles = Get-ChildItem -Path $migrationsDir -Filter "*.sql" -ErrorAction SilentlyContinue
     return ($null -ne $migrationFiles -and $migrationFiles.Count -gt 0)
@@ -155,12 +212,17 @@ Test-GateCheck "SECRET_SCAN" {
     $codeFiles = Get-ChildItem -Path "$SolutionRoot/src" -Include "*.cs","*.cshtml","*.ts","*.tsx","*.js","*.json" -Recurse -ErrorAction SilentlyContinue
     if (-not $codeFiles) { return $true }
 
-    $patterns = @('password\s*=\s*["\'][^"\']+["\']', 'secret\s*=\s*["\'][^"\']+["\']', 'api_key\s*=\s*["\'][^"\']+["\']')
+    $q = [char]39
+    $dq = [char]34
+    $patterns = @(
+        "password\s*=\s*[$dq$q][^$dq$q]+[$dq$q]",
+        "secret\s*=\s*[$dq$q][^$dq$q]+[$dq$q]",
+        "api_key\s*=\s*[$dq$q][^$dq$q]+[$dq$q]"
+    )
     foreach ($file in $codeFiles) {
         foreach ($pattern in $patterns) {
             $matches = Select-String -Path $file.FullName -Pattern $pattern -ErrorAction SilentlyContinue
             if ($matches) {
-                # Ignore appsettings.json (may have placeholders)
                 if ($file.Name -notmatch 'appsettings') {
                     return $false
                 }
@@ -171,7 +233,7 @@ Test-GateCheck "SECRET_SCAN" {
 }
 
 # --------------------------------------------------
-# Phase State Consistency
+# Check 9: Phase State Consistency
 # --------------------------------------------------
 Write-Host ""
 Write-Host "[9/9] Phase state consistency..."
@@ -200,7 +262,7 @@ foreach ($key in $Results.Keys) {
     if ($val -eq $true) {
         Write-Host "  CHECK_${key}=PASS"
         $passCount++
-    } elseif ($val -eq $true -or $val -eq "CI_PENDING") {
+    } elseif ($val -eq "CI_PENDING") {
         Write-Host "  CHECK_${key}=CI_PENDING"
         $ciPendingCount++
         $global:CiPending = $true
@@ -214,13 +276,13 @@ Write-Host ""
 
 if ($global:CiPending -and $failCount -eq 0) {
     Write-Host "PHASE_GATE_STATUS=CI_PENDING"
-    $ExitCode = 3
+    $script:GateExitCode = 3
 } elseif ($failCount -gt 0) {
     Write-Host "PHASE_GATE_STATUS=BLOCKED"
-    $ExitCode = 2
+    $script:GateExitCode = 2
 } else {
     Write-Host "PHASE_GATE_STATUS=PASS"
-    $ExitCode = 0
+    $script:GateExitCode = 0
 }
 
 Write-Host "CHECK_BUILD=$($Results['BUILD'])"
@@ -231,4 +293,4 @@ Write-Host "CHECK_GIT=$($Results['GIT'])"
 Write-Host "CHECK_SECURITY=$($Results['SECRET_SCAN'])"
 Write-Host ""
 
-exit $ExitCode
+exit $script:GateExitCode

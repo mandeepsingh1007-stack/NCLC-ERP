@@ -14,10 +14,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# Requires Npgsql — if dotnet cli available, use the verify_migration approach
+# Requires Npgsql - if dotnet cli available, use the verify_migration approach
 # This script is a PowerShell wrapper for CI use.
 
-Write-Host "HLD Compliance Check — Phase $Phase"
+Write-Host "HLD Compliance Check - Phase $Phase"
 Write-Host "Connection: $ConnectionString"
 Write-Host ""
 
@@ -33,10 +33,20 @@ function Test-SchemaCheck {
     )
     Write-Host "  Checking: $Name ..."
     try {
-        $process = Start-Process -FilePath "dotnet" `
-            -ArgumentList "run --project C:/Project/NCLC/NoCodeLow/.verify/verify_migration.csproj --no-build -- --check $Name" `
-            -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/nclc-check-$Name.txt" `
-            -RedirectStandardError "$env:TEMP/nclc-check-$Name-err.txt"
+        $outputFile = Join-Path $env:TEMP "nclc-check-$Name.txt"
+        $errorFile = Join-Path $env:TEMP "nclc-check-$Name-err.txt"
+        $dotnetPath = "C:/Project/NCLC/NoCodeLow/.verify/verify_migration.csproj"
+        $argList = "run --project $dotnetPath --no-build -- --check $Name"
+        $startArgs = @{
+            FilePath = "dotnet"
+            ArgumentList = $argList
+            NoNewWindow = $true
+            Wait = $true
+            PassThru = $true
+            RedirectStandardOutput = $outputFile
+            RedirectStandardError = $errorFile
+        }
+        $process = Start-Process @startArgs
 
         $checks[$Name] = ($process.ExitCode -eq 0)
         if ($process.ExitCode -ne 0) {
@@ -49,7 +59,7 @@ function Test-SchemaCheck {
     catch {
         $checks[$Name] = $false
         $failures += $Name
-        Write-Host "    ERROR: $Name — $_"
+        Write-Host "    ERROR: $Name"
     }
 }
 

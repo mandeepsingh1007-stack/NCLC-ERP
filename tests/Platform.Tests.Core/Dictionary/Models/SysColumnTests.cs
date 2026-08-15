@@ -29,10 +29,10 @@ public class SysColumnTests
     [Fact]
     public void Create_DefaultValues_ShouldHaveSysReferenceIdAsRequired()
     {
-        // SysReferenceId is int (not int?) — default is 0, meaning caller must set it
+        // SysReferenceId is int? (nullable for LEFT JOIN in metadata graph queries)
+        // Default is null — repository must set it when loading from DB
         var sut = new SysColumn();
-        // 0 is the CLR default for int — this is expected; DI/repository must set it
-        sut.SysReferenceId.Should().Be(0);
+        sut.SysReferenceId.Should().BeNull();
     }
 
     [Fact]

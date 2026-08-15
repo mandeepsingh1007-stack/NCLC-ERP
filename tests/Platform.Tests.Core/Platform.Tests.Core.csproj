@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Platform.Core\Platform.Core.csproj" />
+    <ProjectReference Include="..\..\src\Platform.Metadata\Platform.Metadata.csproj" />
   </ItemGroup>
 
 </Project>
