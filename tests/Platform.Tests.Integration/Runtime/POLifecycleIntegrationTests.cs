@@ -184,13 +184,15 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_EvaluatesSQLRuleFromDatabase()
     {
-        // Note: table name is NOT quoted to match the allowlist regex pattern
-        var engine = new ValRuleEngine(_testConnStr!, new[] { "SysColumn" });
+        // Use lowercase table name — PostgreSQL unquoted identifiers are folded to lowercase.
+        // The database tables are created with double-quoted PascalCase names,
+        // so unquoted queries must use lowercase to match.
+        var engine = new ValRuleEngine(_testConnStr!, new[] { "syscolumn" });
         var rule = new Platform.Core.Metadata.SysValRule
         {
             Name = "SQLRule",
             RuleType = Platform.Core.Metadata.ValRuleTypeEnum.Sql,
-            Code = "SELECT COUNT(*) FROM SysColumn"
+            Code = "SELECT COUNT(*) FROM syscolumn"
         };
 
         var result = engine.Evaluate(rule, "test",
@@ -392,13 +394,13 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_SQLWithTenantPredicate_ReturnsCorrectResults()
     {
-        // Use SysTable which is seeded and always exists — no TEMP table session-scope issues
-        var engine = new ValRuleEngine(_testConnStr!, new[] { "SysTable" });
+        // Use lowercase table names — PostgreSQL unquoted identifiers are folded to lowercase.
+        var engine = new ValRuleEngine(_testConnStr!, new[] { "systable" });
         var rule = new Platform.Core.Metadata.SysValRule
         {
             Name = "TableCount",
             RuleType = Platform.Core.Metadata.ValRuleTypeEnum.Sql,
-            Code = "SELECT COUNT(*) FROM SysTable WHERE TableName = 'SysTable'"
+            Code = "SELECT COUNT(*) FROM systable WHERE tablename = 'SysTable'"
         };
 
         var result = engine.Evaluate(rule, null,

@@ -91,7 +91,7 @@ public class MetadataGraph : IMetadataGraph, IDisposable
                 grouped[refName] = group;
             }
 
-            if (item.List != null)
+            if (item.List != null && item.List.SysReferenceListId > 0)
             {
                 group.Lists.Add(new SysReferenceList
                 {
