@@ -50,6 +50,15 @@ public class MockMetadataGraph : IMetadataGraph
     public TableMetadata? GetTableById(int tableId)
         => _tables.FirstOrDefault(t => t.SysTableId == tableId);
 
+    // UI metadata implementations (always empty for unit test mock)
+    public WindowMetadata? GetWindow(string columnName) => null;
+    public IReadOnlyList<WindowMetadata> GetWindows() => Array.Empty<WindowMetadata>();
+    public IReadOnlyList<SysTab> GetTabs(int windowId) => Array.Empty<SysTab>();
+    public IReadOnlyList<SysFieldGroup> GetFieldGroups(int tabId) => Array.Empty<SysFieldGroup>();
+    public IReadOnlyList<SysField> GetFields(int tabId) => Array.Empty<SysField>();
+    public IReadOnlyList<SysField> GetFieldsByTabAndGroupId(int tabId, int groupId) => Array.Empty<SysField>();
+    public IReadOnlyList<SysMenu> GetMenuHierarchy() => Array.Empty<SysMenu>();
+
     // DictionaryChanged is required by IMetadataGraph. It is intentionally not raised in unit tests
     // because the mock is stateless and never mutates metadata. The real MetadataGraph raises it
     // via OnDictionaryChanged() after mutation operations in production code.

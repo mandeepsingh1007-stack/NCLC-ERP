@@ -8,6 +8,8 @@ using Platform.Data.Repositories;
 using Platform.Extensions;
 using Platform.Core.Metadata;
 using Platform.Core.Runtime;
+using Npgsql;
+using Platform.API.Endpoints;
 using Platform.Metadata.Factory;
 
 Log.Logger = new LoggerConfiguration()
@@ -51,6 +53,13 @@ try
     builder.Services.AddSingleton<SysTableRepository>(sp => new SysTableRepository(connectionString));
     builder.Services.AddSingleton<SysColumnRepository>(sp => new SysColumnRepository(connectionString));
     builder.Services.AddSingleton<SysValRuleRepository>(sp => new SysValRuleRepository(connectionString));
+
+    // Register UI metadata repositories (Phase 3)
+    builder.Services.AddSingleton<SysWindowRepository>(sp => new SysWindowRepository(connectionString));
+    builder.Services.AddSingleton<SysTabRepository>(sp => new SysTabRepository(connectionString));
+    builder.Services.AddSingleton<SysFieldRepository>(sp => new SysFieldRepository(connectionString));
+    builder.Services.AddSingleton<SysFieldGroupRepository>(sp => new SysFieldGroupRepository(connectionString));
+    builder.Services.AddSingleton<SysMenuRepository>(sp => new SysMenuRepository(connectionString));
 
     // Add Redis for distributed caching / cache invalidation
     var redisConnection = builder.Configuration.GetValue<string>("Redis:ConnectionString")
@@ -118,7 +127,26 @@ try
     // POLifecycleManager — transient
     builder.Services.AddTransient<POLifecycleManager>();
 
+    // Phase 3: WindowMetadataBuilder — transient (reads from IMetadataGraph)
+    builder.Services.AddTransient<IWindowMetadataBuilder, WindowMetadataBuilder>();
+
+    // Phase 3: Register QueryBuilder (scoped — reads from singleton IMetadataGraph)
+    builder.Services.AddScoped<QueryBuilder>();
+
+    // Phase 3: Register NpgsqlConnection (scoped — one connection per request)
+    builder.Services.AddScoped<NpgsqlConnection>(sp =>
+        new NpgsqlConnection(connectionString));
+
+    // Phase 3: Register null IReadOnlyContext (Phase 4 wires from JWT)
+    builder.Services.AddScoped<IReadOnlyContext>(sp =>
+        InMemoryContext.Create(null, null, null));
+
     app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+
+    // Phase 3: Register generic API endpoints
+    app.MapGenericDataEndpoints();
+    app.MapGenericMetaEndpoints();
+    app.MapGenericLookupEndpoints();
 
     app.Run();
 }
