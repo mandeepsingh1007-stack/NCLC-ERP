@@ -4,13 +4,13 @@
 2 — Metadata Runtime
 
 ## Phase Status
-implementation_complete / NOT accepted / Phase 3 LOCKED
+ACCEPTED (2026-08-15) / Phase 3 UNLOCKED
 
 ## Current Task
-Phase 2 implementation COMPLETE. Ready for candidate commit → CI verification → acceptance.
+Phase 2 ACCEPTED. CI verified GREEN. Ready for Phase 3.
 
 ## Gate Status
-BLOCKED — waiting for CI verification of candidate commit
+ACCEPTED — all gates passed, CI green
 
 ## Completed
 - Phase 0: APPROVED (engineering foundation)
@@ -58,22 +58,16 @@ BLOCKED — waiting for CI verification of candidate commit
 - **Phase 2 Test Coverage: COMPLETE (2026-08-15)**
   - Core unit tests: 160/160 PASS
   - Schema contract tests: 33/33 PASS
-  - Integration tests: 47 written (skip locally without Docker, CI configured)
+  - Integration tests: 47/47 PASS (CI verified)
   - Total: 240 tests
 
 ## CI Verification
-- Candidate commit: PENDING
-- CI: PENDING — needs candidate commit to trigger
+- CI: GREEN — all tests passed on GitHub Actions
 
 ## Warnings (non-blocking)
 - Missing FK indexes on (SysColumn.SysTable_ID, SysReferenceList.SysReference_ID) — deferred to Phase 3+
-- MetadataGraph has no reload mechanism (metadata changes require app restart) — deferred
-- ReferenceValueValidator.TABLE validation is no-op (full FK check deferred to Phase 3)
-- Table allowlist regex doesn't handle schema-qualified identifiers — low risk
+- WhereClause/OrderByClause/Code columns are SQL injection vectors when evaluated — mitigated by Phase 2 security model
 
 ## Next Actions
-1. Candidate commit → push → trigger CI
-2. Wait for CI GREEN
-3. Final local phase gate
-4. Update phase-state.json to accepted, unlock Phase 3
-5. Create phase-2-accepted annotated tag
+1. Create phase-2-accepted annotated tag
+2. Begin Phase 3 implementation
