@@ -266,11 +266,13 @@ public class ValRuleEngine : IValRuleEngine
     {
         var normalized = sql.Trim();
 
-        // Extract table names from FROM clause (handle aliases: FROM Users u, FROM Users AS u)
-        var fromMatches = System.Text.RegularExpressions.Regex.Matches(normalized, @"\bFROM\s+(\w+)(?:\s+(?:AS\s+)?\w+)?\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        // Extract table names from FROM clause (handle aliases: FROM Users u, FROM Users AS u, FROM "SysColumn")
+        // First try quoted identifiers, then fall back to unquoted word characters
+        var fromMatches = System.Text.RegularExpressions.Regex.Matches(normalized, @"\bFROM\s+(?:""([^""]+)""|(\w+))(?:\s+(?:AS\s+)?\w+)?\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         foreach (System.Text.RegularExpressions.Match m in fromMatches)
         {
-            var tableName = m.Groups[1].Value.ToUpperInvariant();
+            // Group 1 = quoted table name, Group 2 = unquoted table name
+            var tableName = m.Groups[1].Success ? m.Groups[1].Value.ToUpperInvariant() : m.Groups[2].Value.ToUpperInvariant();
             if (IsSqlKeywordOrFunction(tableName))
                 continue;
             if (!allowedTables.Contains(tableName))
@@ -278,10 +280,10 @@ public class ValRuleEngine : IValRuleEngine
         }
 
         // Extract table names from JOIN clauses
-        var joinMatches = System.Text.RegularExpressions.Regex.Matches(normalized, @"\bJOIN\s+(\w+)(?:\s+(?:AS\s+)?\w+)?\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        var joinMatches = System.Text.RegularExpressions.Regex.Matches(normalized, @"\bJOIN\s+(?:""([^""]+)""|(\w+))(?:\s+(?:AS\s+)?\w+)?\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         foreach (System.Text.RegularExpressions.Match m in joinMatches)
         {
-            var tableName = m.Groups[1].Value.ToUpperInvariant();
+            var tableName = m.Groups[1].Success ? m.Groups[1].Value.ToUpperInvariant() : m.Groups[2].Value.ToUpperInvariant();
             if (IsSqlKeywordOrFunction(tableName))
                 continue;
             if (!allowedTables.Contains(tableName))

@@ -184,15 +184,14 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_EvaluatesSQLRuleFromDatabase()
     {
-        // Use lowercase table name — PostgreSQL unquoted identifiers are folded to lowercase.
-        // The database tables are created with double-quoted PascalCase names,
-        // so unquoted queries must use lowercase to match.
-        var engine = new ValRuleEngine(_testConnStr!, new[] { "syscolumn" });
+        // Use double-quoted PascalCase table names matching the schema migration.
+        // The allowlist regex handles both quoted and unquoted identifiers.
+        var engine = new ValRuleEngine(_testConnStr!, new[] { "SysColumn" });
         var rule = new Platform.Core.Metadata.SysValRule
         {
             Name = "SQLRule",
             RuleType = Platform.Core.Metadata.ValRuleTypeEnum.Sql,
-            Code = "SELECT COUNT(*) FROM syscolumn"
+            Code = "SELECT COUNT(*) FROM \"SysColumn\""
         };
 
         var result = engine.Evaluate(rule, "test",
@@ -394,13 +393,13 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_SQLWithTenantPredicate_ReturnsCorrectResults()
     {
-        // Use lowercase table names — PostgreSQL unquoted identifiers are folded to lowercase.
-        var engine = new ValRuleEngine(_testConnStr!, new[] { "systable" });
+        // Use double-quoted PascalCase table names matching the schema migration.
+        var engine = new ValRuleEngine(_testConnStr!, new[] { "SysTable" });
         var rule = new Platform.Core.Metadata.SysValRule
         {
             Name = "TableCount",
             RuleType = Platform.Core.Metadata.ValRuleTypeEnum.Sql,
-            Code = "SELECT COUNT(*) FROM systable WHERE tablename = 'SysTable'"
+            Code = "SELECT COUNT(*) FROM \"SysTable\" WHERE \"TableName\" = 'SysTable'"
         };
 
         var result = engine.Evaluate(rule, null,
