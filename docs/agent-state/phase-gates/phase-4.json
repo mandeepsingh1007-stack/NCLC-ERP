@@ -1,36 +1,63 @@
 {
   "phase": 4,
-  "phaseName": "Security / Tenancy",
+  "phaseName": "React Runtime",
   "prerequisites": [
     "Phase 3 status == accepted",
     "Phase 3 gateStatus == pass",
     "Phase 3 CI == pass"
   ],
   "acceptanceCriteria": {
-    "authentication": [
-      "Identity provider configured (ADR-gated)",
-      "JWT token validation on all API endpoints",
-      "Session/token handling reviewed by security-reviewer"
+    "metadataContract": [
+      "TypeScript contracts generated from WindowContract, TabContract, FieldContract, ReferenceInfo, FieldGroupContract",
+      "Frontend consumes API responses against strict types",
+      "Contract tests verify JSON wire format matches TypeScript shapes"
     ],
-    "authorization": [
-      "RBAC enforced server-side on all API endpoints",
-      "Record-level and column-level access control from metadata",
-      "Tenant isolation — cross-tenant access always rejected"
+    "genericForms": [
+      "Dynamic form renders from SysWindow/SysTab/SysField metadata",
+      "ControlType maps to appropriate React Hook Form field",
+      "Mandatory/ReadOnly/MandatoryLogic/DisplayLogic honored",
+      "Validation pipeline: mandatory → type → length → reference → valrule",
+      "Form submit calls POST/PUT endpoints (501 removed, functional in Phase 5+ or via backend CRUD)"
     ],
-    "tenancy": [
-      "Tenant predicate applied centrally to all queries",
-      "Org-level scoping where applicable",
-      "Cross-tenant access attempts logged and rejected"
+    "genericGrids": [
+      "Data grid renders columns from SysField metadata",
+      "Pagination, sorting, filtering via Data API query builder",
+      "Filter DSL passed as JSON AST to API"
+    ],
+    "lookupSearch": [
+      "Lookup fields render searchable dropdowns",
+      "LIST/TABLE/SEARCH reference types resolved via Lookup API",
+      "Redis cache integration for lookup results"
+    ],
+    "fieldGroups": [
+      "SysFieldGroup rendered as collapsible field sections in forms",
+      "IsCollapsed honored, SeqNo ordering"
+    ],
+    "menus": [
+      "SysMenu rendered as navigation sidebar/topbar",
+      "Hierarchical tree from ParentId links",
+      "Icon and Sequence honored"
+    ],
+    "states": [
+      "Loading state during data fetch",
+      "Error state with retry capability",
+      "Empty state when no records",
+      "Accessibility: ARIA labels, keyboard navigation"
     ],
     "tests": {
-      "security": [
-        "Unauthenticated requests rejected",
-        "Insufficient role requests rejected",
-        "Cross-tenant access rejected",
-        "Column-level access denied for restricted columns"
+      "unit": [
+        "Form rendering from metadata fixtures",
+        "Display logic evaluator integration",
+        "Field validation pipeline",
+        "Lookup resolution with mock API"
+      ],
+      "e2e": [
+        "Full form create → save → display flow",
+        "Grid with filter → paginated results",
+        "Menu navigation → window metadata fetch → form render"
       ],
       "regression": "Phase 1-3 tests still pass"
     },
-    "hldCompliance": "Matches FINAL-MASTER-HLD-LLD-v2.md Section 10"
+    "hldCompliance": "Matches FINAL-MASTER-HLD-LLD-v2.md Section 32 (React Runtime)"
   }
 }

@@ -37,3 +37,10 @@ verify_migration.csproj
 ## Claude dev config (local-only, contains secrets)
 .claude/settings.local.json
 .claude/hooks/.compact-state.txt
+
+## Temporary and debug files
+*.zip
+*.tar.gz
+debug-parser.ts
+verify_*.cs
+verify_*.csproj
