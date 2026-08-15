@@ -61,6 +61,7 @@ public class MetadataGraph : IMetadataGraph, IDisposable
 
     private void LoadWindows(Npgsql.NpgsqlConnection conn)
     {
+        if (!TableExists(conn, "SysWindow")) return;
         var windows = conn.Query<SysWindow>(
             @"SELECT ""SysWindow_ID"", ""ColumnName"", ""Name"", ""Description"", ""Help"",
                       ""DefaultTab_ID"" AS ""DefaultTabId"", ""AccessLevel"", ""IsView"",
@@ -73,6 +74,7 @@ public class MetadataGraph : IMetadataGraph, IDisposable
 
     private void LoadTabs(Npgsql.NpgsqlConnection conn)
     {
+        if (!TableExists(conn, "SysTab")) return;
         var tabs = conn.Query<SysTab>(
             @"SELECT ""SysTab_ID"", ""SysWindow_ID"" AS ""SysWindowId"", ""SysTable_ID"" AS ""SysTableId"",
                       ""ColumnName"", ""Name"", ""SeqNo"", ""IsDefaultTab"", ""IsGrid"",
@@ -95,6 +97,7 @@ public class MetadataGraph : IMetadataGraph, IDisposable
 
     private void LoadFieldGroups(Npgsql.NpgsqlConnection conn)
     {
+        if (!TableExists(conn, "SysFieldGroup")) return;
         var groups = conn.Query<SysFieldGroup>(
             @"SELECT ""SysFieldGroup_ID"", ""SysTab_ID"" AS ""SysTabId"", ""ColumnName"",
                       ""Name"", ""SeqNo"", ""ColSpan"", ""IsCollapsed"", ""EntityType"", ""IsActive"",
@@ -116,6 +119,7 @@ public class MetadataGraph : IMetadataGraph, IDisposable
 
     private void LoadFields(Npgsql.NpgsqlConnection conn)
     {
+        if (!TableExists(conn, "SysField")) return;
         var fields = conn.Query<SysField>(
             @"SELECT ""SysField_ID"", ""SysTab_ID"" AS ""SysTabId"", ""SysColumn_ID"" AS ""SysColumnId"",
                       ""ColumnName"", ""Name"", ""ControlType"", ""SysFieldGroup_ID"" AS ""SysFieldGroupId"",
@@ -140,6 +144,7 @@ public class MetadataGraph : IMetadataGraph, IDisposable
 
     private void LoadMenus(Npgsql.NpgsqlConnection conn)
     {
+        if (!TableExists(conn, "SysMenu")) return;
         var menus = conn.Query<SysMenu>(
             @"SELECT ""SysMenu_ID"", ""Parent_ID"" AS ""ParentId"", ""ColumnName"", ""Name"",
                       ""Icon"", ""Sequence"", ""Window_ID"" AS ""WindowId"", ""Process_ID"" AS ""ProcessId"",
@@ -149,6 +154,21 @@ public class MetadataGraph : IMetadataGraph, IDisposable
 
         foreach (var m in menus)
             _menuById.TryAdd(m.SysMenuId, m);
+    }
+
+    private static bool TableExists(Npgsql.NpgsqlConnection conn, string tableName)
+    {
+        try
+        {
+            var count = conn.QuerySingle<int>(
+                @"SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind = 'r' AND c.relname = @Name AND n.nspname = 'public'",
+                new { Name = tableName });
+            return count > 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void LoadTables(Npgsql.NpgsqlConnection conn)
