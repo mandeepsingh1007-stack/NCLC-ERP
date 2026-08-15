@@ -64,9 +64,9 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
         var tables = graph.GetTableNames();
 
         tables.Should().NotBeNull();
-        tables.Should().Contain("SysTable");
-        tables.Should().Contain("SysColumn");
-        tables.Should().Contain("SysReference");
+        tables.Should().Contain("systable");
+        tables.Should().Contain("syscolumn");
+        tables.Should().Contain("sysreference");
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     public async Task MetadataGraph_LoadsReferences()
     {
         var graph = new MetadataGraph(_testConnStr!);
-        var references = graph.GetReferences("Active");
+        var references = graph.GetReferences("YesNo");
 
         references.Should().NotBeNull();
         references.Count.Should().BeGreaterThanOrEqualTo(1);
@@ -184,12 +184,12 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_EvaluatesSQLRuleFromDatabase()
     {
-        var engine = new ValRuleEngine(_testConnStr!, Array.Empty<string>());
+        var engine = new ValRuleEngine(_testConnStr!, new[] { "SysColumn" });
         var rule = new Platform.Core.Metadata.SysValRule
         {
             Name = "SQLRule",
             RuleType = Platform.Core.Metadata.ValRuleTypeEnum.Sql,
-            Code = "SELECT COUNT(*) FROM SysColumn WHERE SysTable_ID = 1"
+            Code = "SELECT COUNT(*) FROM \"SysColumn\" WHERE \"SysTable_ID\" = 1"
         };
 
         var result = engine.Evaluate(rule, "test",
@@ -200,6 +200,7 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_SQLParameterized_DoesNotConcatenate()
     {
+        // No table allowlist needed — SELECT @Value has no FROM clause
         var engine = new ValRuleEngine(_testConnStr!, Array.Empty<string>());
         var rule = new Platform.Core.Metadata.SysValRule
         {
@@ -219,7 +220,8 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_RejectsPgCatalog()
     {
-        var engine = new ValRuleEngine(_testConnStr!, Array.Empty<string>());
+        // pg_catalog should be blocked even if the table were in the allowlist
+        var engine = new ValRuleEngine(_testConnStr!, new[] { "pg_tables" });
         var rule = new Platform.Core.Metadata.SysValRule
         {
             Name = "PgCatalogRule",
@@ -236,7 +238,8 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_RejectsCTE()
     {
-        var engine = new ValRuleEngine(_testConnStr!, Array.Empty<string>());
+        // CTEs are blocked even with 't' in the allowlist
+        var engine = new ValRuleEngine(_testConnStr!, new[] { "t" });
         var rule = new Platform.Core.Metadata.SysValRule
         {
             Name = "CTERule",
@@ -252,7 +255,8 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_RejectsInsert()
     {
-        var engine = new ValRuleEngine(_testConnStr!, Array.Empty<string>());
+        // INSERT is always blocked regardless of table allowlist
+        var engine = new ValRuleEngine(_testConnStr!, new[] { "Users" });
         var rule = new Platform.Core.Metadata.SysValRule
         {
             Name = "InsertRule",
@@ -387,8 +391,6 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_SQLWithTenantPredicate_ReturnsCorrectResults()
     {
-        var engine = new ValRuleEngine(_testConnStr!, Array.Empty<string>());
-
         // Create a temporary test table in the CI database
         using var createCmd = new Npgsql.NpgsqlCommand(
             "CREATE TEMP TABLE IF NOT EXISTS _test_products (id SERIAL, product_name VARCHAR(100), description TEXT)",
@@ -404,6 +406,8 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
         await insertCmd.ExecuteNonQueryAsync();
 
         // Query that filters by the inserted product — returns 1
+        // Note: TEMP tables are session-scoped so the engine's own connection can see them
+        var engine = new ValRuleEngine(_testConnStr!, new[] { "_test_products" });
         var rule = new Platform.Core.Metadata.SysValRule
         {
             Name = "ProductCount",

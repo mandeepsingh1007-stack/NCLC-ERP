@@ -94,3 +94,180 @@ INSERT INTO "SysElement" ("ColumnName", "Name", "Description", "IsActive") VALUE
     ('Code', 'Rule Code', 'Rule expression/code', TRUE),
     ('IsActive', 'Active', 'Active flag', TRUE)
 ON CONFLICT ("ColumnName") DO NOTHING;
+
+-- ------------------------------------------------------------------
+-- Seed SysColumn — column definitions for each seeded SysTable
+-- ------------------------------------------------------------------
+-- We seed SysColumn rows for each seeded SysTable using explicit
+-- mapping. Each row links: SysTable_ID → ColumnName → SysElement_ID
+-- → optional SysReference_ID for type/validation hints.
+
+-- Helper: verify all dependencies exist
+DO $body$
+BEGIN
+    -- Ensure SysElement, SysReference, SysTable are populated
+    IF (SELECT COUNT(*) FROM "SysElement") = 0 THEN
+        RAISE EXCEPTION 'SysElement is empty — must seed SysElement before SysColumn';
+    END IF;
+    IF (SELECT COUNT(*) FROM "SysReference") = 0 THEN
+        RAISE EXCEPTION 'SysReference is empty — must seed SysReference before SysColumn';
+    END IF;
+    IF (SELECT COUNT(*) FROM "SysTable") = 0 THEN
+        RAISE EXCEPTION 'SysTable is empty — must seed SysTable before SysColumn';
+    END IF;
+END $body$;
+
+-- Seed SysColumn for each seeded SysTable.
+-- Strategy: use a CTE that generates all (SysTable, ColumnName) pairs,
+-- then join SysElement to get display names.
+
+WITH table_columns AS (
+    -- SysTable columns
+    SELECT 'SysTable'::TEXT AS tname, col::TEXT AS cname FROM unnest(ARRAY[
+        'SysTable_ID','TableName','ClassName','Description',
+        'IsView','AccessLevel','IsChangeLog','IsDeleteable',
+        'IsHighVolume','EntityType','IsActive'
+    ]) col
+    UNION ALL
+    -- SysColumn columns
+    SELECT 'SysColumn', col FROM unnest(ARRAY[
+        'SysColumn_ID','SysTable_ID','ColumnName','SysElement_ID',
+        'SysReference_ID','SysValRule_ID','SysReferenceValue_ID',
+        'FieldLength','IsMandatory','IsKey','IsParent','IsIdentifier',
+        'IsSelectionColumn','IsEncrypted','IsUpdateable','IsAlwaysUpdateable',
+        'DefaultValue','ValueMin','ValueMax','SeqNo','EntityType','IsActive'
+    ]) col
+    UNION ALL
+    -- SysReference columns
+    SELECT 'SysReference', col FROM unnest(ARRAY[
+        'SysReference_ID','Name','ValidationType',
+        'IsSystemType','ValueFormat','IsActive'
+    ]) col
+    UNION ALL
+    -- SysValRule columns
+    SELECT 'SysValRule', col FROM unnest(ARRAY[
+        'SysValRule_ID','Name','Description','RuleType','Code','IsActive'
+    ]) col
+    UNION ALL
+    -- SysElement columns
+    SELECT 'SysElement', col FROM unnest(ARRAY[
+        'SysElement_ID','ColumnName','Name','Description',
+        'IsActive','Help','Tooltip','DefaultFormat','SysWindow_ID'
+    ]) col
+    UNION ALL
+    -- SysReferenceList columns
+    SELECT 'SysReferenceList', col FROM unnest(ARRAY[
+        'SysReferenceList_ID','SysReference_ID','Value','Name',
+        'Description','SeqNo','IsActive'
+    ]) col
+    UNION ALL
+    -- SysReferenceTable columns
+    SELECT 'SysReferenceTable', col FROM unnest(ARRAY[
+        'SysReferenceTable_ID','SysReference_ID','SysTable_ID',
+        'KeyColumn','DisplayColumn','IsActive'
+    ]) col
+),
+mapped AS (
+    SELECT
+        st."SysTable_ID",
+        tc.cname AS "ColumnName",
+        se."SysElement_ID",
+        CASE tc.cname
+            WHEN 'SysTable_ID' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'AccessLevel' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'SeqNo' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'FieldLength' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'SysColumn_ID' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'SysReference_ID' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'SysValRule_ID' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'SysElement_ID' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'SysReferenceList_ID' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'SysReferenceTable_ID' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'SysReferenceValue_ID' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'SysWindow_ID' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Integer')
+            WHEN 'IsView' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsChangeLog' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsDeleteable' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsHighVolume' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsActive' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsKey' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsMandatory' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsUpdateable' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsParent' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsIdentifier' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsSelectionColumn' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsEncrypted' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'IsAlwaysUpdateable' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'YesNo')
+            WHEN 'ValidationType' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Text')
+            WHEN 'RuleType' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Text')
+            WHEN 'EntityType' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Text')
+            WHEN 'ValueFormat' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Text')
+            WHEN 'DefaultFormat' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Text')
+            WHEN 'FormatString' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Text')
+            WHEN 'ValueMin' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Text')
+            WHEN 'ValueMax' THEN (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Text')
+            ELSE (SELECT "SysReference_ID" FROM "SysReference" WHERE "Name" = 'Text')
+        END,
+        CASE tc.cname
+            WHEN 'ClassName' THEN 120
+            WHEN 'Description' THEN 255
+            WHEN 'TableName' THEN 60
+            WHEN 'EntityType' THEN 10
+            WHEN 'ValueFormat' THEN 60
+            WHEN 'Name' THEN 60
+            WHEN 'RuleType' THEN 10
+            WHEN 'Code' THEN 500
+            WHEN 'Help' THEN 500
+            WHEN 'DefaultFormat' THEN 100
+            WHEN 'Tooltip' THEN 255
+            WHEN 'Placeholder' THEN 100
+            WHEN 'FormatString' THEN 50
+            WHEN 'ValidationType' THEN 10
+            WHEN 'IsView' THEN 1
+            WHEN 'IsChangeLog' THEN 1
+            WHEN 'IsDeleteable' THEN 1
+            WHEN 'IsHighVolume' THEN 1
+            WHEN 'IsActive' THEN 1
+            WHEN 'IsKey' THEN 1
+            WHEN 'IsMandatory' THEN 1
+            WHEN 'IsUpdateable' THEN 1
+            WHEN 'IsParent' THEN 1
+            WHEN 'IsIdentifier' THEN 1
+            WHEN 'IsSelectionColumn' THEN 1
+            WHEN 'IsEncrypted' THEN 1
+            WHEN 'IsAlwaysUpdateable' THEN 1
+            ELSE NULL
+        END
+    FROM "SysTable" st
+    JOIN table_columns tc ON tc.tname = st."TableName"
+    LEFT JOIN "SysElement" se ON se."ColumnName" = tc.cname
+)
+INSERT INTO "SysColumn" ("SysTable_ID", "ColumnName", "SysElement_ID", "SysReference_ID",
+    "FieldLength", "IsMandatory", "IsKey", "IsUpdateable", "SeqNo", "IsActive")
+SELECT
+    "SysTable_ID",
+    "ColumnName",
+    "SysElement_ID",
+    "SysReference_ID",
+    "FieldLength",
+    CASE "ColumnName"
+        WHEN 'TableName' THEN TRUE
+        WHEN 'ColumnName' THEN TRUE
+        ELSE FALSE
+    END,
+    CASE "ColumnName"
+        WHEN 'SysTable_ID' THEN TRUE
+        WHEN 'SysColumn_ID' THEN TRUE
+        WHEN 'SysReference_ID' THEN TRUE
+        WHEN 'SysValRule_ID' THEN TRUE
+        WHEN 'SysElement_ID' THEN TRUE
+        WHEN 'SysReferenceList_ID' THEN TRUE
+        WHEN 'SysReferenceTable_ID' THEN TRUE
+        ELSE FALSE
+    END,
+    TRUE,
+    row_number() OVER (PARTITION BY "SysTable_ID" ORDER BY "ColumnName"),
+    TRUE
+FROM mapped
+WHERE "SysElement_ID" IS NOT NULL
+ON CONFLICT DO NOTHING;
