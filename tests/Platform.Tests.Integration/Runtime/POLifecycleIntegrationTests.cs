@@ -142,7 +142,7 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
         var result = validator.Validate("SysTable", nameCol!, "ValidTableName",
             InMemoryContext.Create("user1", "tenant1", "org1"));
 
-        result.IsSuccess.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue($"Validation failed: {string.Join("; ", result.Errors)}");
     }
 
     [Fact]
@@ -195,7 +195,7 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
 
         var result = engine.Evaluate(rule, "test",
             InMemoryContext.Create(null, null, null));
-        result.Passed.Should().BeTrue(); // COUNT > 0 returns non-zero int
+        result.Passed.Should().BeTrue($"SQL rule failed: {result.ErrorMessage}"); // COUNT > 0 returns non-zero int
     }
 
     [Fact]
@@ -335,7 +335,7 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
         var result = validator.Validate("SysTable", nameCol!, "ValidTableName",
             InMemoryContext.Create(null, null, null));
 
-        result.IsSuccess.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue($"Validation failed: {string.Join("; ", result.Errors)}");
     }
 
     [Fact]
