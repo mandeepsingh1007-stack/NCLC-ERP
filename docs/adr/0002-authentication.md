@@ -1,6 +1,6 @@
 # ADR-002: Authentication Strategy
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Date**: 2026-08-14
 - **Context**: The platform needs authentication for multi-client/organization/role access.
 

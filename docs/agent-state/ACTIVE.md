@@ -4,7 +4,7 @@
 5 — Security and Tenancy
 
 ## Phase Status
-LOCKED — Phase 4 ACCEPTED
+LOCKED — Phase 4 ACCEPTED, Phase 5 prerequisites resolved
 
 ## Phase 4 — ACCEPTED (2026-08-16)
 - **React Runtime: COMPLETE**
@@ -18,6 +18,16 @@ LOCKED — Phase 4 ACCEPTED
 - Infrastructure: API client, TanStack Query, display logic evaluator (no eval/new Function), lazy loading, error/loading/empty states
 - Phase 4 commit: 451a658
 
+## Phase 5 Prerequisites — RESOLVED (2026-08-16)
+- Phase 4 gateStatus == accepted
+- Phase 4 CI == GREEN
+- ADR-0002 (Authentication) → Accepted
+- ADR-010 (Phase Numbering Drift) → Accepted
+- ADR-011 (RBAC/Authorization) → Accepted
+- ADR-012 (Session Management) → Accepted
+- phase-5.json gate updated to "Security and Tenancy"
+- security-tenancy skill created
+
 ## Completed
 - Phase 0: APPROVED (engineering foundation)
 - Phase 1: ACCEPTED (2026-08-15)
@@ -27,8 +37,8 @@ LOCKED — Phase 4 ACCEPTED
 
 ## Next Phase
 Phase 5 — Security and Tenancy
-- JWT authentication
-- RBAC
-- Tenant isolation
-- Organization authorization
-- Record/column permissions
+- JWT authentication (ASP.NET Core Identity / JWT bearer)
+- RBAC with 14 security metadata tables
+- Tenant isolation via QueryBuilder predicate injection
+- CRUD mutations (POST/PUT/DELETE) — remove 501 stubs
+- Session management (refresh tokens, deny list, audit log)
