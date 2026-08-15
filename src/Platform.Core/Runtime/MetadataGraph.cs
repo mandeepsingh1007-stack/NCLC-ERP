@@ -78,7 +78,8 @@ public class MetadataGraph : IMetadataGraph, IDisposable
               LEFT JOIN ""SysReferenceList"" l ON r.""SysReference_ID"" = l.""SysReference_ID"" AND l.""IsActive"" = true
               WHERE r.""IsActive"" = true
               ORDER BY r.""Name"", l.""SeqNo""",
-            (refEntity, list) => (refEntity, list));
+            (refEntity, list) => (refEntity, list),
+            splitOn: "SysReferenceList_ID");
 
         var grouped = new Dictionary<string, (SysReference Reference, List<SysReferenceList> Lists)>();
         foreach (var item in rows)
@@ -153,7 +154,8 @@ public class MetadataGraph : IMetadataGraph, IDisposable
               LEFT JOIN ""SysElement"" e ON c.""SysElement_ID"" = e.""SysElement_ID""
               WHERE c.""IsActive"" = true
               ORDER BY c.""SysTable_ID"", c.""SeqNo""",
-            (col, elem) => (col, elem));
+            (col, elem) => (col, elem),
+            splitOn: "ElementName");
 
         foreach (var row in rows)
         {
