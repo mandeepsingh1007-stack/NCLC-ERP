@@ -75,7 +75,7 @@ if ($currentStatus -eq "accepted" -and $currentGateStatus -eq "pass") {
         Write-Host "Setting nextPhaseUnlocked = true"
 
         # Update phase-state.json
-        $state.nextPhaseUnlocked = $true | ConvertTo-Json -Compress
+        $state.nextPhaseUnlocked = $true
         $state | ConvertTo-Json -Depth 10 | Set-Content $phaseStateFile
 
         Write-Host "Phase $TargetPhase is UNLOCKED."
@@ -87,11 +87,14 @@ if ($currentStatus -eq "ci_pending") {
     Write-Host "BLOCKED: Previous phase ($currentPhase) has gateStatus='$currentGateStatus'."
     Write-Host "Phase $TargetPhase CANNOT start until Phase $currentPhase CI verification passes."
     Write-Host ""
+    $prevGateFile = "$phaseGatesDir/phase-$currentPhase.json"
     if (Test-Path $prevGateFile) {
         $prevGate = Get-Content $prevGateFile -Raw | ConvertFrom-Json
         Write-Host "Required before next phase:"
-        foreach ($req in $prevGate.requiredBeforePhase2) {
-            Write-Host "  - $req"
+        if ($prevGate.PSObject.Properties.Name -contains 'requiredBeforePhase2') {
+            foreach ($req in $prevGate.requiredBeforePhase2) {
+                Write-Host "  - $req"
+            }
         }
     }
     exit 2
