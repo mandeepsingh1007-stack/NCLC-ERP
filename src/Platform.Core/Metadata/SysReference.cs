@@ -10,4 +10,5 @@ public class SysReference : ISysEntity
     public ValidationTypeEnum ValidationType { get; set; }
     public bool IsSystemType { get; set; }
     public string? ValueFormat { get; set; }
+    public bool IsActive { get; set; } = true;
 }

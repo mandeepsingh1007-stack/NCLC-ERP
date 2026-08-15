@@ -64,20 +64,20 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
         var tables = graph.GetTableNames();
 
         tables.Should().NotBeNull();
-        tables.Should().Contain("Users");
-        tables.Should().Contain("Orders");
-        tables.Should().Contain("Products");
+        tables.Should().Contain("SysTable");
+        tables.Should().Contain("SysColumn");
+        tables.Should().Contain("SysReference");
     }
 
     [Fact]
     public async Task MetadataGraph_LoadsAllColumnsForATable()
     {
         var graph = new MetadataGraph(_testConnStr!);
-        var columns = graph.GetColumns("Users");
+        var columns = graph.GetColumns("SysTable");
 
         columns.Should().NotBeNull();
         columns.Count.Should().BeGreaterThan(0);
-        columns.Should().Contain(c => c.ColumnName == "UserName");
+        columns.Should().Contain(c => c.ColumnName == "TableName");
     }
 
     [Fact]
@@ -94,13 +94,13 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     public async Task MetadataGraph_GetTableById_ReturnsTableMetadata()
     {
         var graph = new MetadataGraph(_testConnStr!);
-        var usersTable = graph.GetTable("Users");
-        usersTable.Should().NotBeNull();
+        var sysTableTable = graph.GetTable("SysTable");
+        sysTableTable.Should().NotBeNull();
 
-        var byId = graph.GetTableById(usersTable!.SysTableId);
+        var byId = graph.GetTableById(sysTableTable!.SysTableId);
 
         byId.Should().NotBeNull();
-        byId!.TableName.Should().Be("Users");
+        byId!.TableName.Should().Be("SysTable");
     }
 
     [Fact]
@@ -113,13 +113,13 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
             new ValRuleEngine(_testConnStr!, graph.GetTableNames()),
             graph);
 
-        // "UserName" is a mandatory column in the seeded Users table
-        var columns = graph.GetColumns("Users");
-        var userNameCol = columns.FirstOrDefault(c => c.ColumnName == "UserName");
-        userNameCol.Should().NotBeNull();
-        userNameCol!.IsMandatory.Should().BeTrue();
+        // "TableName" is a mandatory column in the seeded SysTable table
+        var columns = graph.GetColumns("SysTable");
+        var tableNameCol = columns.FirstOrDefault(c => c.ColumnName == "TableName");
+        tableNameCol.Should().NotBeNull();
+        tableNameCol!.IsMandatory.Should().BeTrue();
 
-        var result = validator.Validate("Users", userNameCol, null,
+        var result = validator.Validate("SysTable", tableNameCol, null,
             InMemoryContext.Create("user1", "tenant1", "org1"));
 
         result.IsSuccess.Should().BeFalse();
@@ -136,10 +136,10 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
             new ValRuleEngine(_testConnStr!, graph.GetTableNames()),
             graph);
 
-        var columns = graph.GetColumns("Users");
-        var nameCol = columns.FirstOrDefault(c => c.ColumnName == "UserName");
+        var columns = graph.GetColumns("SysTable");
+        var nameCol = columns.FirstOrDefault(c => c.ColumnName == "TableName");
 
-        var result = validator.Validate("Users", nameCol!, "JohnDoe",
+        var result = validator.Validate("SysTable", nameCol!, "ValidTableName",
             InMemoryContext.Create("user1", "tenant1", "org1"));
 
         result.IsSuccess.Should().BeTrue();
@@ -158,10 +158,10 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
         // ValidateAll with missing mandatory fields should collect errors
         var values = new Dictionary<string, object?>();
 
-        var result = validator.ValidateAll("Users", values,
+        var result = validator.ValidateAll("SysTable", values,
             InMemoryContext.Create("user1", "tenant1", "org1"));
 
-        // At minimum UserName is mandatory — should fail
+        // At minimum TableName is mandatory — should fail
         result.IsSuccess.Should().BeFalse();
     }
 
@@ -323,11 +323,11 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
             new ValRuleEngine(_testConnStr!, graph.GetTableNames()),
             graph);
 
-        var columns = graph.GetColumns("Users");
-        var nameCol = columns.FirstOrDefault(c => c.ColumnName == "UserName");
+        var columns = graph.GetColumns("SysTable");
+        var nameCol = columns.FirstOrDefault(c => c.ColumnName == "TableName");
 
         // Mandatory check + type check + string length
-        var result = validator.Validate("Users", nameCol!, "JohnDoe",
+        var result = validator.Validate("SysTable", nameCol!, "ValidTableName",
             InMemoryContext.Create(null, null, null));
 
         result.IsSuccess.Should().BeTrue();
@@ -368,21 +368,20 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
         // Verify: successful persist → then InvalidateAsync called → event published
         // This is the positive test: commit → event → invalidation
 
-        var graph = new MetadataGraph(_testConnStr!);
         var memoryCache = new MemoryCache(new MemoryCacheOptions());
         var cache = new MetadataCacheService(memoryCache, new DummyCache());
 
-        cache.Set<string>("meta:table:Users", "data-v1");
-        cache.Get<string>("meta:table:Users").Should().Be("data-v1");
+        cache.Set<string>("meta:table:SysTable", "data-v1");
+        cache.Get<string>("meta:table:SysTable").Should().Be("data-v1");
 
         // Simulate successful persist → then InvalidateAsync
         var invalidationService = new CacheInvalidationService(cache, "nonexistent:12345");
-        var evt = new DictionaryChangedEvent("Table", 1, "Users", "Updated");
+        var evt = new DictionaryChangedEvent("Table", 1, "SysTable", "Updated");
 
         // This simulates the post-commit path in POLifecycleManager
         await invalidationService.InvalidateAsync(evt);
 
-        cache.Get<string>("meta:table:Users").Should().BeNull("Cache should be invalidated after successful persist + InvalidateAsync");
+        cache.Get<string>("meta:table:SysTable").Should().BeNull("Cache should be invalidated after successful persist + InvalidateAsync");
     }
 
     [Fact]
@@ -390,20 +389,26 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     {
         var engine = new ValRuleEngine(_testConnStr!, Array.Empty<string>());
 
-        // Insert a test row into the seeded Products table
-        using var cmd = new Npgsql.NpgsqlCommand(
-            "INSERT INTO Products (ProductName, Description) VALUES (@name, @desc) ON CONFLICT DO NOTHING",
+        // Create a temporary test table in the CI database
+        using var createCmd = new Npgsql.NpgsqlCommand(
+            "CREATE TEMP TABLE IF NOT EXISTS _test_products (id SERIAL, product_name VARCHAR(100), description TEXT)",
             _connection);
-        cmd.Parameters.AddWithValue("@name", "TestProduct");
-        cmd.Parameters.AddWithValue("@desc", "Test description");
-        await cmd.ExecuteNonQueryAsync();
+        await createCmd.ExecuteNonQueryAsync();
+
+        // Insert a test row
+        using var insertCmd = new Npgsql.NpgsqlCommand(
+            "INSERT INTO _test_products (product_name, description) VALUES (@name, @desc)",
+            _connection);
+        insertCmd.Parameters.AddWithValue("@name", "TestProduct");
+        insertCmd.Parameters.AddWithValue("@desc", "Test description");
+        await insertCmd.ExecuteNonQueryAsync();
 
         // Query that filters by the inserted product — returns 1
         var rule = new Platform.Core.Metadata.SysValRule
         {
             Name = "ProductCount",
             RuleType = Platform.Core.Metadata.ValRuleTypeEnum.Sql,
-            Code = "SELECT COUNT(*) FROM Products WHERE ProductName = 'TestProduct'"
+            Code = "SELECT COUNT(*) FROM _test_products WHERE product_name = 'TestProduct'"
         };
 
         var result = engine.Evaluate(rule, null,

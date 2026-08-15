@@ -60,6 +60,19 @@ public class ContextVariableResolver : IContextVariableResolver
         }
 
         var targetType = typeof(T);
+
+        // If already the right type, return it
+        if (value is T typed)
+        {
+            return typed;
+        }
+
+        // For string targets, convert via ToString()
+        if (targetType == typeof(string))
+        {
+            return (T)(object)value.ToString()!;
+        }
+
         if (targetType.IsValueType)
         {
             try

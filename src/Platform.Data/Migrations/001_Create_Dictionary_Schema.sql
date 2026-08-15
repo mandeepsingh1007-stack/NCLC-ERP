@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS "SysReference" (
     "Name"              VARCHAR(60) NOT NULL UNIQUE,
     "ValidationType"    VARCHAR(10) NOT NULL,
     "IsSystemType"      BOOLEAN NOT NULL DEFAULT FALSE,
-    "ValueFormat"       VARCHAR(60)
+    "ValueFormat"       VARCHAR(60),
+    "IsActive"          BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 COMMENT ON TABLE "SysReference" IS 'Reference types used for column validation (list, table, search).';
