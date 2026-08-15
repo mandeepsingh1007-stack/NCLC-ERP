@@ -1,16 +1,16 @@
 # Active Agent State
 
 ## Current Phase
-2 — Metadata Runtime
+3 — Generic Metadata API
 
 ## Phase Status
-ACCEPTED (2026-08-15) / Phase 3 UNLOCKED
+ACCEPTED (2026-08-15) / Phase 4 UNLOCKED
 
 ## Current Task
-Phase 2 ACCEPTED. CI verified GREEN. Ready for Phase 3.
+Phase 3 ACCEPTED. CI verified GREEN. Phase 4 NOT STARTED.
 
 ## Gate Status
-ACCEPTED — all gates passed, CI green
+PASS — all gates passed, CI green
 
 ## Completed
 - Phase 0: APPROVED (engineering foundation)
@@ -60,6 +60,30 @@ ACCEPTED — all gates passed, CI green
   - Schema contract tests: 33/33 PASS
   - Integration tests: 47/47 PASS (CI verified)
   - Total: 240 tests
+- **Phase 3 Implementation: COMPLETE (2026-08-15)**
+  - Generic Data API endpoints (GET list/single with pagination, filtering, sorting)
+  - Generic Meta API endpoints (window metadata, windows list, menu hierarchy)
+  - Generic Lookup API endpoints (LIST/TABLE/SEARCH reference resolution with Redis cache)
+  - QueryBuilder with 3-layer SQL injection defense (table allowlist, column allowlist, parameterized values)
+  - Filter DSL parser (JSON AST → parameterized SQL WHERE clause)
+  - Display logic evaluator (AND/OR/NOT/comparison/field-ref AST)
+  - WindowMetadataBuilder (hierarchical JSON from UI metadata tables)
+  - UI metadata models (SysWindow, SysTab, SysField, SysFieldGroup, SysMenu)
+  - UI metadata Dapper repositories (5 new repos)
+  - Migration 004 for UI metadata tables
+  - IMetadataGraph extended with UI metadata methods
+  - 2 unit test files (DisplayLogicEvaluator: 126 tests, FilterParser: 113 tests)
+  - Phase 3 documentation (ADRs, API contracts, security findings, test matrix, UX design)
+  - POST/PUT/DELETE return 501 (deferred to Phase 4 with auth context)
+  - MetadataGraph tolerant of missing UI tables (graceful degradation)
+- **Phase 3 Test Coverage: COMPLETE (2026-08-15)**
+  - Core unit tests: 186/186 PASS
+  - Schema contract tests: 33/33 PASS
+  - Integration tests: 30/30 PASS (CI verified)
+  - Total: 219 tests
+- **Phase 3 CI Verification: COMPLETE (2026-08-15)**
+  - 3 commits: implementation + 2 CI fixes
+  - CI GREEN on GitHub Actions
 
 ## CI Verification
 - CI: GREEN — all tests passed on GitHub Actions
@@ -67,7 +91,9 @@ ACCEPTED — all gates passed, CI green
 ## Warnings (non-blocking)
 - Missing FK indexes on (SysColumn.SysTable_ID, SysReferenceList.SysReference_ID) — deferred to Phase 3+
 - WhereClause/OrderByClause/Code columns are SQL injection vectors when evaluated — mitigated by Phase 2 security model
+- No global exception handler middleware (Phase 7)
+- No authentication (Phase 4)
 
 ## Next Actions
-1. Create phase-2-accepted annotated tag
-2. Begin Phase 3 implementation
+1. Phase 3 tag created: phase-3-accepted
+2. Begin Phase 4: Authentication (JWT), tenant isolation, CRUD mutations
