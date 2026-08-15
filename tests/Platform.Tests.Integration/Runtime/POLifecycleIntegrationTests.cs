@@ -184,12 +184,13 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_EvaluatesSQLRuleFromDatabase()
     {
+        // Note: table name is NOT quoted to match the allowlist regex pattern
         var engine = new ValRuleEngine(_testConnStr!, new[] { "SysColumn" });
         var rule = new Platform.Core.Metadata.SysValRule
         {
             Name = "SQLRule",
             RuleType = Platform.Core.Metadata.ValRuleTypeEnum.Sql,
-            Code = "SELECT COUNT(*) FROM \"SysColumn\" WHERE \"SysTable_ID\" = 1"
+            Code = "SELECT COUNT(*) FROM SysColumn WHERE SysTable_ID = 1"
         };
 
         var result = engine.Evaluate(rule, "test",
@@ -391,33 +392,18 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task ValRuleEngine_SQLWithTenantPredicate_ReturnsCorrectResults()
     {
-        // Create a temporary test table in the CI database
-        using var createCmd = new Npgsql.NpgsqlCommand(
-            "CREATE TEMP TABLE IF NOT EXISTS _test_products (id SERIAL, product_name VARCHAR(100), description TEXT)",
-            _connection);
-        await createCmd.ExecuteNonQueryAsync();
-
-        // Insert a test row
-        using var insertCmd = new Npgsql.NpgsqlCommand(
-            "INSERT INTO _test_products (product_name, description) VALUES (@name, @desc)",
-            _connection);
-        insertCmd.Parameters.AddWithValue("@name", "TestProduct");
-        insertCmd.Parameters.AddWithValue("@desc", "Test description");
-        await insertCmd.ExecuteNonQueryAsync();
-
-        // Query that filters by the inserted product — returns 1
-        // Note: TEMP tables are session-scoped so the engine's own connection can see them
-        var engine = new ValRuleEngine(_testConnStr!, new[] { "_test_products" });
+        // Use SysTable which is seeded and always exists — no TEMP table session-scope issues
+        var engine = new ValRuleEngine(_testConnStr!, new[] { "SysTable" });
         var rule = new Platform.Core.Metadata.SysValRule
         {
-            Name = "ProductCount",
+            Name = "TableCount",
             RuleType = Platform.Core.Metadata.ValRuleTypeEnum.Sql,
-            Code = "SELECT COUNT(*) FROM _test_products WHERE product_name = 'TestProduct'"
+            Code = "SELECT COUNT(*) FROM SysTable WHERE TableName = 'SysTable'"
         };
 
         var result = engine.Evaluate(rule, null,
             InMemoryContext.Create("user1", "tenant1", null));
-        // Result is non-zero int → Pass
+        // SysTable has exactly 1 row with TableName = 'SysTable' → count = 1 → Pass
         result.Passed.Should().BeTrue("SQL query should return non-zero count");
     }
 

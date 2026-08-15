@@ -140,14 +140,14 @@ public class POFactoryIntegrationTests : IAsyncLifetime
     public async Task MetadataGraph_GetColumns_ReturnsActiveAndInactive()
     {
         var graph = new MetadataGraph(_testConnStr!);
-        var columns = graph.GetColumns("Users");
+        var columns = graph.GetColumns("SysTable");
 
         columns.Should().NotBeNull();
         columns.Count.Should().BeGreaterThan(0);
 
         // Verify expected columns exist
         var columnNames = columns.Select(c => c.ColumnName).ToHashSet();
-        columnNames.Should().Contain("UserName");
+        columnNames.Should().Contain("TableName");
     }
 
     [Fact]
