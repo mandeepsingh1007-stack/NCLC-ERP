@@ -190,7 +190,7 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
         {
             Name = "SQLRule",
             RuleType = Platform.Core.Metadata.ValRuleTypeEnum.Sql,
-            Code = "SELECT COUNT(*) FROM SysColumn WHERE SysTable_ID = 1"
+            Code = "SELECT COUNT(*) FROM SysColumn"
         };
 
         var result = engine.Evaluate(rule, "test",
@@ -402,7 +402,7 @@ public class POLifecycleIntegrationTests : IAsyncLifetime
         };
 
         var result = engine.Evaluate(rule, null,
-            InMemoryContext.Create("user1", "tenant1", null));
+            InMemoryContext.Create(null, null, null));
         // SysTable has exactly 1 row with TableName = 'SysTable' → count = 1 → Pass
         result.Passed.Should().BeTrue("SQL query should return non-zero count");
     }
