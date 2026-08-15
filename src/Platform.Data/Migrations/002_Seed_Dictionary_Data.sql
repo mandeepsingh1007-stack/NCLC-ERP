@@ -23,7 +23,7 @@ ON CONFLICT ("Name") DO NOTHING;
 -- ------------------------------------------------------------------
 INSERT INTO "SysValRule" ("Name", "Description", "RuleType", "Code") VALUES
     ('NotNull', 'Value must not be null or empty', 'SQL', 'VALUE IS NOT NULL'),
-    ('MaxLength', 'Maximum string length validation', 'VARCHAR', 'MAXLENGTH')
+    ('MaxLength', 'Maximum string length validation', 'SQL', 'VALUE IS NOT NULL')
 ON CONFLICT ("Name") DO NOTHING;
 
 -- ------------------------------------------------------------------
