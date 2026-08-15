@@ -33,7 +33,7 @@ public class FilterParserTests
 
         Assert.Contains("WHERE", result.SqlWhereClause);
         Assert.Contains("Status", result.SqlWhereClause);
-        Assert.Equal(1, result.Parameters.Length);
+        Assert.Single(result.Parameters);
         Assert.Equal("Active", result.Parameters[0].Value);
         Assert.Equal(1, result.ClauseCount);
     }

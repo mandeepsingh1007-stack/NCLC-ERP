@@ -27,11 +27,5 @@
     <ProjectReference Include="..\Platform.Metadata\Platform.Metadata.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="Migrations\M003_Create_UI_Metadata_Tables.sql">
-      <LogicalName>Platform.API.Migrations.M003_Create_UI_Metadata_Tables.sql</LogicalName>
-    </EmbeddedResource>
-  </ItemGroup>
-
 
 </Project>
