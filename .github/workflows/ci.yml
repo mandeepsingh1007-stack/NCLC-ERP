@@ -77,7 +77,14 @@ jobs:
       run: dotnet test tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --logger:"console;verbosity=normal"
 
     - name: Verify Redis connectivity
-      run: redis-cli -h localhost ping
+      run: |
+        if command -v redis-cli &> /dev/null; then
+          redis-cli -h localhost ping
+          echo "Redis service is available"
+        else
+          echo "redis-cli not installed — skipping direct Redis check"
+          echo "Redis integration tests will use .NET health checks and skip if unavailable"
+        fi
 
     - name: Test (Redis Integration — requires Redis service)
       env:
