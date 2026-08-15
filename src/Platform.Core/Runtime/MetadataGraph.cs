@@ -132,18 +132,16 @@ public class MetadataGraph : IMetadataGraph, IDisposable
 
     private void LoadColumns(Npgsql.NpgsqlConnection conn)
     {
-        // Batch load tables — map SysTableId -> SysTable
-        var tableById = conn.Query<SysTable>(
-                @"SELECT ""SysTable_ID"", ""TableName"" FROM ""SysTable"" WHERE ""IsActive"" = true")
-            .ToDictionary(t => t.SysTableId);
+        // Batch load tables — map SysTableId -> TableName
+        var tableById = conn.Query(@"SELECT ""SysTable_ID"", ""TableName"" FROM ""SysTable"" WHERE ""IsActive"" = true")
+            .ToDictionary(r => (int)r.SysTable_ID);
 
-        // Batch load SysReference — map SysReferenceId -> SysReference
-        var refById = conn.Query<SysReference>(
-                @"SELECT ""SysReference_ID"", ""Name"", ""ValidationType"" FROM ""SysReference"" WHERE ""IsActive"" = true")
-            .ToDictionary(r => r.SysReferenceId);
+        // Batch load SysReference — map SysReferenceId -> (Name, ValidationType)
+        var refById = conn.Query(@"SELECT ""SysReference_ID"", ""Name"", ""ValidationType"" FROM ""SysReference"" WHERE ""IsActive"" = true")
+            .ToDictionary(r => (int)r.SysReference_ID);
 
-        var rows = conn.Query<SysColumn, SysElement?, (SysColumn Column, SysElement? Element)>(
-            @"SELECT c.""SysColumn_ID"", c.""SysTable_ID"", c.""ColumnName"", c.""SysReference_ID"",
+        // Batch load SysColumn with SysElement display info
+        var rows = conn.Query(@"SELECT c.""SysColumn_ID"", c.""SysTable_ID"", c.""ColumnName"", c.""SysReference_ID"",
                      c.""SysValRule_ID"", c.""SysReferenceValue_ID"", c.""FieldLength"",
                      c.""IsMandatory"", c.""IsKey"", c.""IsParent"", c.""IsIdentifier"",
                      c.""IsSelectionColumn"", c.""IsEncrypted"", c.""IsUpdateable"",
@@ -153,28 +151,42 @@ public class MetadataGraph : IMetadataGraph, IDisposable
               FROM ""SysColumn"" c
               LEFT JOIN ""SysElement"" e ON c.""SysElement_ID"" = e.""SysElement_ID""
               WHERE c.""IsActive"" = true
-              ORDER BY c.""SysTable_ID"", c.""SeqNo""",
-            (col, elem) => (col, elem),
-            splitOn: "ElementName");
+              ORDER BY c.""SysTable_ID"", c.""SeqNo""");
 
         foreach (var row in rows)
         {
-            var col = row.Column;
+            var sysColumnId = (int)row.SysColumn_ID;
+            var sysTableId = (int)row.SysTable_ID;
+            var columnName = (string)row.ColumnName;
+            var sysReferenceId = (int?)row.SysReference_ID;
+            var sysValRuleId = (int?)row.SysValRule_ID;
+            var fieldLength = (int?)row.FieldLength;
+            var isMandatory = (bool)row.IsMandatory;
+            var isKey = (bool)row.IsKey;
+            var isUpdateable = (bool)row.IsUpdateable;
+            var valueMin = row.ValueMin as string;
+            var valueMax = row.ValueMax as string;
+            var defaultValue = row.DefaultValue as string;
+            var seqNo = (int)row.SeqNo;
+            var isActive = (bool)row.IsActive;
+            var elementName = row.ElementName as string;
+            var elementHelp = row.Help as string;
+
             // Resolve table from batch-loaded dictionary (O(1) lookup)
-            if (!tableById.TryGetValue(col.SysTableId, out var table))
+            if (!tableById.TryGetValue(sysTableId, out var tableRow))
             {
                 continue;
             }
 
-            var tableName = table.TableName;
+            var tableName = (string)tableRow.TableName;
             var tableKey = tableName.ToLowerInvariant();
 
             // Resolve ValRule info (already loaded into _valRulesById)
             ValRuleTypeEnum valRuleType = 0;
             string? valRuleCode = null;
-            if (col.SysValRuleId.HasValue)
+            if (sysValRuleId.HasValue)
             {
-                if (_valRulesById.TryGetValue(col.SysValRuleId.Value, out var rule))
+                if (_valRulesById.TryGetValue(sysValRuleId.Value, out var rule))
                 {
                     valRuleType = rule.RuleType;
                     valRuleCode = rule.Code;
@@ -184,39 +196,38 @@ public class MetadataGraph : IMetadataGraph, IDisposable
             // Resolve reference info from batch-loaded dictionary
             string? baseType = "VarChar";
             string? validationType = null;
-            if (col.SysReferenceId.HasValue)
+            string? refName = null;
+            if (sysReferenceId.HasValue && refById.TryGetValue(sysReferenceId.Value, out var refInfo))
             {
-                if (refById.TryGetValue(col.SysReferenceId.Value, out var refInfo))
-                {
-                    validationType = refInfo.ValidationType.ToString();
-                    baseType = refInfo.Name;
-                }
+                refName = (string)refInfo.Name;
+                validationType = (string)refInfo.ValidationType;
+                baseType = refName;
             }
 
             var metaCol = new MetaColumn
             {
-                SysColumnId = col.SysColumnId,
-                SysTableId = col.SysTableId,
+                SysColumnId = sysColumnId,
+                SysTableId = sysTableId,
                 TableName = tableName,
-                ColumnName = col.ColumnName,
-                Label = row.Element?.Name ?? col.ColumnName,
-                Help = row.Element?.Help,
+                ColumnName = columnName,
+                Label = elementName ?? columnName,
+                Help = elementHelp,
                 BaseType = baseType ?? string.Empty,
                 ValidationType = validationType,
-                SysReferenceId = col.SysReferenceId,
-                SysValRuleId = col.SysValRuleId,
+                SysReferenceId = sysReferenceId,
+                SysValRuleId = sysValRuleId,
                 ValRuleType = valRuleType,
                 ValRuleCode = valRuleCode,
-                FieldLength = col.FieldLength,
-                IsMandatory = col.IsMandatory,
-                IsKey = col.IsKey,
-                IsUpdateable = col.IsUpdateable,
-                ValueMin = col.ValueMin,
-                ValueMax = col.ValueMax,
-                DefaultValue = col.DefaultValue,
-                ReferenceName = refById.TryGetValue(col.SysReferenceId ?? 0, out var refInfo2) ? refInfo2.Name : null,
-                SeqNo = col.SeqNo,
-                IsActive = col.IsActive
+                FieldLength = fieldLength,
+                IsMandatory = isMandatory,
+                IsKey = isKey,
+                IsUpdateable = isUpdateable,
+                ValueMin = valueMin,
+                ValueMax = valueMax,
+                DefaultValue = defaultValue,
+                ReferenceName = refName,
+                SeqNo = seqNo,
+                IsActive = isActive
             };
 
             _tableColumns.AddOrUpdate(
