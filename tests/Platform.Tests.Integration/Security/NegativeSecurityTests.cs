@@ -244,7 +244,9 @@ public class NegativeSecurityTests : IAsyncLifetime
         };
 
         var (sql, _) = qb.BuildUpdate("Test", "Id", data, ctx);
-        sql.Should().NotContain("Id");
+        // Id (PK) must not appear in the SET clause, only in WHERE
+        var setClause = sql.Substring(0, sql.IndexOf("WHERE", StringComparison.OrdinalIgnoreCase));
+        setClause.Should().NotContain("Id");
         sql.Should().Contain("\"Name\"");
         sql.Should().Contain("WHERE");
     }
@@ -440,8 +442,8 @@ public class NegativeSecurityTests : IAsyncLifetime
         // Attempt to inject via sort direction
         var result = qb.ValidateSort("Products", "Name", "desc; DROP TABLE Products;--");
         result.Should().NotBeNull();
-        // Direction should be normalized to a safe value
-        result.Value.Direction.Should().Be("DESC");
+        // Invalid direction string should default to ASC (safe default)
+        result.Value.Direction.Should().Be("ASC");
     }
 
     [Fact]
