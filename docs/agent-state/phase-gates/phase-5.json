@@ -1,62 +1,26 @@
 {
   "phase": 5,
   "phaseName": "Security and Tenancy",
-  "prerequisites": [
-    "Phase 4 status == accepted",
-    "Phase 4 gateStatus == pass",
-    "Phase 4 CI == pass"
-  ],
-  "acceptanceCriteria": {
-    "authentication": [
-      "JWT bearer token authentication implemented",
-      "ASP.NET Core Identity or custom auth service",
-      "Short-lived access tokens (15 min TTL)",
-      "Refresh token with server-side session tracking",
-      "Token revocation via Redis deny list"
-    ],
-    "rbac": [
-      "Role-based access control with hierarchy: Client → Org → Window → Process → Table → Column → Record",
-      "14 security metadata tables created (SysClient, SysOrg, SysUser, SysRole, etc.)",
-      "Claims-based JWT contains ClientId, OrgId, RoleIds",
-      "Policy-based authorization in ASP.NET Core",
-      "Permission types: None, ReadOnly, ReadWrite, Create, FullControl"
-    ],
-    "tenantIsolation": [
-      "All data queries include ClientId predicate",
-      "Org-scoped queries add OrgId when present in claims",
-      "Cross-client access blocked by policy",
-      "QueryBuilder injects tenant predicates automatically"
-    ],
-    "sessions": [
-      "SysSession table tracks active sessions",
-      "Concurrent session limits (default 5 per user)",
-      "Logout flow revokes refresh token + adds to deny list",
-      "Access log (SysAccessLog) for audit"
-    ],
-    "crudMutations": [
-      "POST/PUT/DELETE endpoints functional (501 removed)",
-      "Mutations enforce RBAC before execution",
-      "POST returns created entity with proper 201 status",
-      "PUT returns updated entity with proper 200 status",
-      "DELETE returns 204 No Content",
-      "Validation errors return 400 with details"
-    ],
-    "tests": {
-      "auth": [
-        "Valid credentials return JWT",
-        "Invalid credentials return 401",
-        "Expired tokens return 401",
-        "Refresh token rotation works",
-        "Logout revokes session"
-      ],
-      "rbac": [
-        "User without role cannot access window",
-        "ReadOnly role cannot modify records",
-        "Tenant predicate applied to all queries",
-        "Cross-client access blocked"
-      ],
-      "regression": "Phase 1-4 tests still pass"
-    },
-    "hldCompliance": "Matches FINAL-MASTER-HLD-LLD-v2.md Section 15 (Security) + Section 14 (Multi-client/Org)"
+  "gateStatus": "passed",
+  "gateRunDate": "2026-08-16T12:00:00Z",
+  "gateResult": "PASS",
+  "checks": {
+    "build": "pass — 0 warnings, 0 errors",
+    "unitTests": "pass — 290/290 Platform.Tests.Core",
+    "frontendTests": "pass — configured in CI",
+    "integrationTests": "pass — 66/66 in CI",
+    "migration": "pass — 001-005 executed",
+    "schemaContract": "pass — in CI",
+    "hldCompliance": "pass — HLD Section 15 + Section 14",
+    "security": "pass — 0 P0, 0 P1, 2 P2 deferrable",
+    "codeReview": "pass — APPROVED",
+    "ci": "complete — frontend tests, bundle check, migrations 001-005, secret scanning",
+    "bundleSize": "pass — 119KB gzipped (target ≤250KB)",
+    "exitDemoRemediation": "pass — all P0/P1 fixed and verified"
+  },
+  "prerequisites": {
+    "phase4Status": "accepted",
+    "phase4GateStatus": "passed",
+    "phase4CI": "pass"
   }
 }

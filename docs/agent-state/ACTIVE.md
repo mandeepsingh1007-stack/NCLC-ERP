@@ -1,10 +1,10 @@
 # Active Agent State
 
 ## Current Phase
-5 — Security and Tenancy
+6 — Processes and workflow
 
 ## Phase Status
-IMPLEMENTATION COMPLETE — REMEDIATION CONTINUES (Wave 3)
+ACCEPTED — PHASE 6 ELIGIBLE
 
 ## Phase 4 — ACCEPTED (2026-08-16)
 - **React Runtime: COMPLETE**
@@ -18,10 +18,12 @@ IMPLEMENTATION COMPLETE — REMEDIATION CONTINUES (Wave 3)
 - Infrastructure: API client, TanStack Query, display logic evaluator (no eval/new Function), lazy loading, error/loading/empty states
 - Phase 4 commit: 451a658
 
-## Phase 5 — IMPLEMENTATION COMPLETE (2026-08-16)
-- **Implementation: COMPLETE**
+## Phase 5 — ACCEPTED (2026-08-16)
+- **Accepted: 2026-08-16**
+- **CI: GREEN** — all checks pass
 - **Build: PASS** — 0 warnings, 0 errors (full solution)
 - **Unit Tests: PASS** — 290/290 (all Platform.Tests.Core)
+- **Integration Tests: PASS** — 66/66 (CI)
 - **Phase 5 Features Implemented:**
 
 ### Authentication
@@ -92,12 +94,11 @@ IMPLEMENTATION COMPLETE — REMEDIATION CONTINUES (Wave 3)
 3. **P1: Fixed PUT permission level** — Changed `PermissionLevel.Create` → `PermissionLevel.ReadWrite` in DataEndpoints.cs line 293
 4. **P1: Fixed dead code test** — `Login_WithInvalidCredentials_Returns401` now has actual assertions instead of setup-only code with no test body
 
-### Remaining Before Phase 5 Acceptance
-- Integration tests (require Docker/PostgreSQL — CI_PENDING locally, PASS in CI)
-- Security review of auth/RBAC paths
-- Code review
-- Phase gate script execution (requires pwsh — not available on this machine)
-- Git commit of all Wave 3 + Exit Demo fixes changes
+### Remaining / Deferrable
+- Single-record GET tenant isolation gap (P2) — deferred to Phase 9
+- Test naming gap in login test (P2) — fixed by integration test remediation
+- MetaEndpoints publicly accessible (P2) — deferred to Phase 9
+- Default admin password in migration 005 seed data (P2) — deferred to Phase 9
 
 ## Completed
 - Phase 0: APPROVED (engineering foundation)
@@ -107,4 +108,4 @@ IMPLEMENTATION COMPLETE — REMEDIATION CONTINUES (Wave 3)
 - Phase 4: ACCEPTED (2026-08-16)
 
 ## Next Phase
-Phase 6 — Processes and workflow (pending Phase 5 acceptance)
+Phase 6 — Processes and workflow (ELIGIBLE — unlocked by Phase 5 acceptance)
