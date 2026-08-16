@@ -22,6 +22,12 @@ public class RbacRepository : IRbacRepository
     /// Single query per access table type for maximum efficiency.
     /// </summary>
     public async Task<RbacResolution> ResolveAsync(int clientId, IEnumerable<int> roleIds)
+        => await ResolveAsync(clientId, roleIds, userId: null);
+
+    public async Task<RbacResolution> ResolveAsync(int clientId, IEnumerable<int> roleIds, int userId)
+        => await ResolveAsync(clientId, roleIds, userId: (int?)userId);
+
+    private async Task<RbacResolution> ResolveAsync(int clientId, IEnumerable<int> roleIds, int? userId)
     {
         var roleList = roleIds.ToList();
         if (roleList.Count == 0)
@@ -60,7 +66,7 @@ public class RbacRepository : IRbacRepository
             r => (PermissionLevel)r.Permission);
 
         // Record-level filters
-        var recordRows = await conn.QueryAsync<(int SysTableId, string? FilterExpression)>(
+        var recordRows = await conn.QueryAsync<(int SysTableId, string FilterExpression)>(
             @"SELECT ""SysTable_ID"", ""FilterExpression""
               FROM ""SysRecordAccess""
               WHERE ""SysClient_ID"" = @ClientId AND ""SysRole_ID"" = ANY(@RoleIds)",
@@ -72,17 +78,9 @@ public class RbacRepository : IRbacRepository
                 g => g.Key,
                 g => string.Join(" AND ", g.Select(r => $"({r.FilterExpression})")));
 
-        // Private record access
-        var privateRows = await conn.QueryAsync<(int SysTableId, int RecordId)>(
-            @"SELECT ""SysTable_ID"", ""RecordId""
-              FROM ""SysPrivateAccess""
-              WHERE ""SysClient_ID"" = @ClientId AND ""SysRole_ID"" = ANY(@RoleIds)",
-            new { ClientId = clientId, RoleIds = roleList });
-        var privateAccess = privateRows
-            .GroupBy(r => r.SysTableId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select(r => r.RecordId).ToHashSet());
+        // Private record access — role-level (legacy, included in cached resolution)
+        // Note: User-level private access is resolved separately via ResolvePrivateAccessAsync.
+        var privateAccess = new Dictionary<int, HashSet<int>>();
 
         return new RbacResolution(
             windowPermissions,
@@ -90,5 +88,24 @@ public class RbacRepository : IRbacRepository
             columnPermissions,
             recordFilters,
             privateAccess);
+    }
+
+    public async Task<IReadOnlyDictionary<int, HashSet<int>>> ResolvePrivateAccessAsync(int clientId, int userId)
+    {
+        using var conn = new NpgsqlConnection(_connectionString);
+
+        var privateRows = await conn.QueryAsync<(int SysTableId, int RecordId)>(
+            @"SELECT ""SysTable_ID"", ""RecordId""
+              FROM ""SysPrivateAccess""
+              WHERE ""SysClient_ID"" = @ClientId AND ""SysUser_ID"" = @UserId",
+            new { ClientId = clientId, UserId = userId });
+
+        var result = privateRows
+            .GroupBy(r => r.SysTableId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(r => r.RecordId).ToHashSet());
+
+        return result;
     }
 }

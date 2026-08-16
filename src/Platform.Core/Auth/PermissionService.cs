@@ -49,6 +49,8 @@ public class PermissionService : IPermissionService
         return await _cache.GetOrCreateAsync(key, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = CacheTtl;
+            // Note: ResolveAsync is called from the cache factory which doesn't have userId.
+            // The PermissionService layer passes userId where needed (e.g. private access checks).
             return await _rbacRepo.ResolveAsync(clientId, roleIdsList);
         })!;
     }
@@ -231,14 +233,15 @@ public class PermissionService : IPermissionService
         if (userCtx == null)
             return new HashSet<int>();
 
-        var (clientId, roleIds) = userCtx.Value;
+        var (clientId, _) = userCtx.Value;
 
         var tableId = await _namespaceRepo.GetTableIdAsync(tableName);
         if (tableId == null)
             return new HashSet<int>();
 
-        var resolution = await ResolveRbacAsync(clientId, roleIds);
-        return resolution.PrivateAccessRecords.TryGetValue(tableId.Value, out var ids)
+        // User-level private access is resolved directly (not from cached RBAC)
+        var privateAccess = await _rbacRepo.ResolvePrivateAccessAsync(clientId, userId);
+        return privateAccess.TryGetValue(tableId.Value, out var ids)
             ? new HashSet<int>(ids)
             : new HashSet<int>();
     }

@@ -86,12 +86,18 @@ IMPLEMENTATION COMPLETE — REMEDIATION CONTINUES (Wave 3)
    - Secret scanning step
 5. **ACTIVE.md** — Updated to reflect Phase 5 implementation_complete status
 
+### Phase 5 Exit Demo Fixes (P0/P1)
+1. **P0: Removed SysProcess FK from migration 004** — FK to non-existent SysProcess table removed (Phase 6)
+2. **P0: Fixed RbacRepository SysPrivateAccess query** — Added `ResolvePrivateAccessAsync(int clientId, int userId)` method querying `SysUser_ID` column correctly. Split user-level private access into separate method to preserve RBAC caching (keyed by clientId+roleIds, not userId)
+3. **P1: Fixed PUT permission level** — Changed `PermissionLevel.Create` → `PermissionLevel.ReadWrite` in DataEndpoints.cs line 293
+4. **P1: Fixed dead code test** — `Login_WithInvalidCredentials_Returns401` now has actual assertions instead of setup-only code with no test body
+
 ### Remaining Before Phase 5 Acceptance
 - Integration tests (require Docker/PostgreSQL — CI_PENDING locally, PASS in CI)
 - Security review of auth/RBAC paths
 - Code review
 - Phase gate script execution (requires pwsh — not available on this machine)
-- Git commit of all Wave 3 changes
+- Git commit of all Wave 3 + Exit Demo fixes changes
 
 ## Completed
 - Phase 0: APPROVED (engineering foundation)

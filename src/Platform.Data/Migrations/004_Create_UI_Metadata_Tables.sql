@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS "SysMenu" (
     "Icon"              VARCHAR(60),
     "Sequence"          INT             NOT NULL DEFAULT 0,
     "Window_ID"         INT             REFERENCES "SysWindow" ("SysWindow_ID"),
-    "Process_ID"        INT             REFERENCES "SysProcess" ("SysProcess_ID"),
+    "Process_ID"        INT,
     "IsSeparator"       BOOLEAN         NOT NULL DEFAULT FALSE,
     "IsSystem"          BOOLEAN         NOT NULL DEFAULT FALSE,
     "EntityType"        VARCHAR(20)     NOT NULL DEFAULT 'D',

@@ -27,8 +27,22 @@ public interface IRbacRepository
 {
     /// <summary>
     /// Batch-resolve all permissions for a set of role IDs and client ID.
+    /// Private access (SysPrivateAccess) is NOT resolved here — it is user-specific
+    /// and must be resolved separately via ResolvePrivateAccessAsync.
     /// </summary>
     Task<RbacResolution> ResolveAsync(int clientId, IEnumerable<int> roleIds);
+
+    /// <summary>
+    /// Batch-resolve all permissions for a set of role IDs and client ID,
+    /// including user-level private access for the specified userId.
+    /// </summary>
+    Task<RbacResolution> ResolveAsync(int clientId, IEnumerable<int> roleIds, int userId);
+
+    /// <summary>
+    /// Resolve user-level private record access for a set of tables.
+    /// Returns a dictionary mapping SysTableId → set of allowed RecordIds.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, HashSet<int>>> ResolvePrivateAccessAsync(int clientId, int userId);
 }
 
 /// <summary>

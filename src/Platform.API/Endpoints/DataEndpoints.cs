@@ -290,7 +290,7 @@ public static class DataEndpoints
             if (userId == null)
                 return Results.Unauthorized();
 
-            var writePerm = await permissionService.CanWriteTableAsync(userId.Value, table, PermissionLevel.Create);
+            var writePerm = await permissionService.CanWriteTableAsync(userId.Value, table, PermissionLevel.ReadWrite);
             var authResp = CheckPermission(writePerm);
             if (authResp != null)
                 return authResp;

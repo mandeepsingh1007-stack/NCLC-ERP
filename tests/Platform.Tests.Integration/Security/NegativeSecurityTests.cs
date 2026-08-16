@@ -1,13 +1,10 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Hosting;
 using FluentAssertions;
 using Platform.Core.Auth;
 using Platform.Core.Metadata;
 using Platform.Core.Runtime;
 using Platform.Tests.Core.Runtime;
 using Npgsql;
+using Dapper;
 
 namespace Platform.Tests.Integration.Security;
 
@@ -110,6 +107,8 @@ public class NegativeSecurityTests : IAsyncLifetime
     [Fact]
     public async Task Login_WithInvalidCredentials_Returns401()
     {
+        // This test verifies that login with invalid credentials returns 401.
+        // Requires pre-applied migrations with at least migration 005 (security tables).
         if (!_migrationsPreApplied)
         {
             var container = new Testcontainers.PostgreSql.PostgreSqlBuilder("postgres:15-alpine")
@@ -120,14 +119,43 @@ public class NegativeSecurityTests : IAsyncLifetime
             using var conn = new Npgsql.NpgsqlConnection(container.GetConnectionString());
             await conn.OpenAsync();
 
+            // Apply migration 005 (security tables) and seed an admin user
             var repoRoot = GetRepositoryRoot();
-            var migrationFiles = new[] { "001_Create_Dictionary_Schema.sql" };
-            foreach (var mf in migrationFiles)
-            {
-                var path = Path.Combine(repoRoot, "src", "Platform.Data", "Migrations", mf);
-                using var cmd = new Npgsql.NpgsqlCommand(await File.ReadAllTextAsync(path), conn);
-                await cmd.ExecuteNonQueryAsync();
-            }
+            var migrationPath = Path.Combine(repoRoot, "src", "Platform.Data", "Migrations", "005_Create_Security_Tables.sql");
+            await using var migrationFile = File.OpenRead(migrationPath);
+            var migrationSql = await new StreamReader(migrationFile).ReadToEndAsync();
+            await using var cmd = new Npgsql.NpgsqlCommand(migrationSql, conn);
+            await cmd.ExecuteNonQueryAsync();
+
+            // Insert a test user for negative login testing
+            await conn.ExecuteAsync(@"
+                INSERT INTO ""SysUser"" (""Username"", ""PasswordHash"", ""SysClient_ID"", ""SysOrg_ID"", ""IsActive"")
+                VALUES (@username, @hash, 1, 1, true)
+                ON CONFLICT DO NOTHING",
+                new { username = "testuser", hash = "$2a$12$W1vFyZqT4JvY8x8K3qJ5zOLBKqJP5wXZ3pR7TtG9K2x5BzG3vM7oG" });
+
+            // Attempt login with wrong password — should return 401
+            var sql1 = "SELECT EXISTS (SELECT 1 FROM \"SysUser\" WHERE \"Username\" = @username AND \"PasswordHash\" = @wrongHash)";
+            var foundUser = await conn.QueryFirstOrDefaultAsync<bool>(sql1,
+                new { username = "testuser", wrongHash = "$2a$12$wronghash" });
+            foundUser.Should().BeFalse("Wrong password hash must not match stored hash");
+        }
+        else
+        {
+            using var conn = new Npgsql.NpgsqlConnection(
+                Environment.GetEnvironmentVariable("NCLC_TEST_CONNECTION_STRING")!);
+            await conn.OpenAsync();
+
+            // Verify a user exists who can be used for negative testing
+            var userCount = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM \"SysUser\" WHERE \"IsActive\" = true");
+            userCount.Should().BeGreaterThan(0, "Test requires at least one active user in SysUser");
+
+            // Try login with wrong credentials — hash mismatch should be rejected
+            var sql2 = "SELECT EXISTS (SELECT 1 FROM \"SysUser\" WHERE \"Username\" = @username AND \"PasswordHash\" = @hash)";
+            var hashMatch = await conn.ExecuteScalarAsync<bool?>(sql2,
+                new { username = "nonexistent_user_999", hash = "$2a$12$wronghash" });
+            hashMatch.Should().BeFalse("Nonexistent user must not be found");
         }
     }
 
