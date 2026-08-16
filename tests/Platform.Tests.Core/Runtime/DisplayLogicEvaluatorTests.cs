@@ -237,4 +237,158 @@ public class DisplayLogicEvaluatorTests
         var result = evaluator.Evaluate(longExpr, new Dictionary<string, object?>(), NullContext);
         Assert.False(result);
     }
+
+    #region Display Logic Parity — in / not in / empty / not empty
+
+    [Fact]
+    public void Evaluate_InOperator_ReturnsTrue()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var result = evaluator.Evaluate(
+            "'Active' in ['Active', 'Pending']",
+            new Dictionary<string, object?>(),
+            NullContext);
+        System.Console.WriteLine($"[in test] Evaluated={result.Evaluated} Value={result.Value} Msg={result.Message}");
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Evaluate_InOperator_ReturnsFalse()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var result = evaluator.Evaluate(
+            "'Active' in ['Closed', 'Pending']",
+            new Dictionary<string, object?>(),
+            NullContext);
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Evaluate_NotInOperator_ReturnsTrue()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var result = evaluator.Evaluate(
+            "'Active' not in ['Closed', 'Pending']",
+            new Dictionary<string, object?>(),
+            NullContext);
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Evaluate_NotInOperator_ReturnsFalse()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var result = evaluator.Evaluate(
+            "'Active' not in ['Active', 'Pending']",
+            new Dictionary<string, object?>(),
+            NullContext);
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Evaluate_EmptyOperator_WithNullField_ReturnsTrue()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var values = new Dictionary<string, object?>(); // no "Status" key
+        var result = evaluator.Evaluate(
+            "$Status empty",
+            values,
+            NullContext);
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Evaluate_EmptyOperator_WithEmptyString_ReturnsTrue()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var values = new Dictionary<string, object?> { { "Status", "" } };
+        var result = evaluator.Evaluate(
+            "$Status empty",
+            values,
+            NullContext);
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Evaluate_EmptyOperator_WithValue_ReturnsFalse()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var values = new Dictionary<string, object?> { { "Status", "Active" } };
+        var result = evaluator.Evaluate(
+            "$Status empty",
+            values,
+            NullContext);
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Evaluate_NotEmptyOperator_WithValue_ReturnsTrue()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var values = new Dictionary<string, object?> { { "Status", "Active" } };
+        var result = evaluator.Evaluate(
+            "$Status not empty",
+            values,
+            NullContext);
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Evaluate_NotEmptyOperator_WithNullField_ReturnsFalse()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var values = new Dictionary<string, object?>();
+        var result = evaluator.Evaluate(
+            "$Status not empty",
+            values,
+            NullContext);
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Evaluate_NotEmptyOperator_WithEmptyString_ReturnsFalse()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var values = new Dictionary<string, object?> { { "Status", "" } };
+        var result = evaluator.Evaluate(
+            "$Status not empty",
+            values,
+            NullContext);
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Evaluate_LikeOperator_SQLStyle_ReturnsTrue()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var result = evaluator.Evaluate(
+            "'Hello World' like '%World%'",
+            new Dictionary<string, object?>(),
+            NullContext);
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Evaluate_NotLikeOperator_ReturnsTrue()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var result = evaluator.Evaluate(
+            "'Hello' not like '%World%'",
+            new Dictionary<string, object?>(),
+            NullContext);
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Evaluate_NotLikeOperator_ReturnsFalse()
+    {
+        var evaluator = new DisplayLogicEvaluator();
+        var result = evaluator.Evaluate(
+            "'Hello' not like '%Hello%'",
+            new Dictionary<string, object?>(),
+            NullContext);
+        Assert.False(result);
+    }
+
+    #endregion
 }

@@ -1,6 +1,6 @@
 {
   "phase": 6,
-  "phaseName": "Platform Services",
+  "phaseName": "Processes and workflow",
   "prerequisites": [
     "Phase 5 status == accepted",
     "Phase 5 gateStatus == pass",

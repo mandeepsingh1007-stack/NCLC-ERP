@@ -12,7 +12,7 @@ public class SchemaContractTests
 {
     private static readonly string? ConnectionString =
         Environment.GetEnvironmentVariable("NCLC_TEST_CONNECTION_STRING")
-        ?? "Host=127.0.0.1;Port=5432;Database=nclc;Username=postgres;Password=Era@123";
+        ?? throw new InvalidOperationException("NCLC_TEST_CONNECTION_STRING environment variable is not set.");
 
     private NpgsqlConnection CreateConnection() => new(ConnectionString!);
 

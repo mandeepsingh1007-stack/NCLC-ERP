@@ -7,7 +7,8 @@
 #>
 
 param(
-    [string]$ConnectionString = "Host=127.0.0.1;Port=5432;Database=nclc;Username=postgres;Password=Era@123",
+    [string]$ConnectionString,
+    [string]$DbPassword,
     [string]$Phase = "1"
 )
 

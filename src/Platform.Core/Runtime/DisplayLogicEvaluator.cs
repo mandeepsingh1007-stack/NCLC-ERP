@@ -107,6 +107,12 @@ public class DisplayLogicEvaluator
                 case ')':
                     tokens.Add(new DisplayLogicToken(DisplayLogicTokenType.RParen, ")"));
                     tokenCount++; i++; break;
+                case '[':
+                    tokens.Add(new DisplayLogicToken(DisplayLogicTokenType.LParen, "["));
+                    tokenCount++; i++; break;
+                case ']':
+                    tokens.Add(new DisplayLogicToken(DisplayLogicTokenType.RParen, "]"));
+                    tokenCount++; i++; break;
                 case ',':
                     tokens.Add(new DisplayLogicToken(DisplayLogicTokenType.Comma, ","));
                     tokenCount++; i++; break;
@@ -172,7 +178,43 @@ public class DisplayLogicEvaluator
                         else if (word.Equals("false", StringComparison.OrdinalIgnoreCase)) tt = DisplayLogicTokenType.Boolean;
                         else if (word.Equals("null", StringComparison.OrdinalIgnoreCase)) tt = DisplayLogicTokenType.Null;
                         else if (word.Equals("in", StringComparison.OrdinalIgnoreCase)) tt = DisplayLogicTokenType.In;
-                        else if (word.Equals("not", StringComparison.OrdinalIgnoreCase)) tt = DisplayLogicTokenType.Not;
+                        else if (word.Equals("not", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Peek ahead for two-word operators: "not in", "not like", "not empty"
+                            var saved = i;
+                            while (i < len && char.IsWhiteSpace(expression[i])) i++;
+                            var nextWordStart = i;
+                            var nextWord = string.Empty;
+                            if (i < len && (char.IsLetter(expression[i]) || expression[i] == '$'))
+                            {
+                                var nwb = new System.Text.StringBuilder();
+                                while (i < len && (char.IsLetterOrDigit(expression[i]) || expression[i] == '_' || expression[i] == '$'))
+                                    nwb.Append(expression[i++]);
+                                nextWord = nwb.ToString();
+                            }
+                            if (string.Equals(nextWord, "in", StringComparison.OrdinalIgnoreCase))
+                            {
+                                tt = DisplayLogicTokenType.NotIn;
+                                tokenCount++;
+                            }
+                            else if (string.Equals(nextWord, "like", StringComparison.OrdinalIgnoreCase))
+                            {
+                                tt = DisplayLogicTokenType.NotLike;
+                                tokenCount++;
+                            }
+                            else if (string.Equals(nextWord, "empty", StringComparison.OrdinalIgnoreCase))
+                            {
+                                tt = DisplayLogicTokenType.NotEmpty;
+                                tokenCount++;
+                            }
+                            else
+                            {
+                                // Regular "not" for prefix negation
+                                tt = DisplayLogicTokenType.Not;
+                                i = saved;
+                            }
+                            wordSb.Append(' ').Append(nextWord);
+                        }
                         else if (word.Equals("like", StringComparison.OrdinalIgnoreCase)) tt = DisplayLogicTokenType.Like;
                         else if (word.Equals("empty", StringComparison.OrdinalIgnoreCase)) tt = DisplayLogicTokenType.Empty;
                         else if (word.StartsWith("$")) tt = DisplayLogicTokenType.FieldRef;
@@ -239,10 +281,33 @@ internal class ExpressionParser
         {
             var op = ConvertOp(_tokens[_pos].Type);
             _pos++;
-            var right = ParsePrimary();
-            left = new ComparisonNode(op, left, right);
+
+            // 'in' and 'not in' expect an array literal [...] as the right operand
+            if (_tokens[_pos].Type == DisplayLogicTokenType.LParen && _tokens[_pos].Text == "[")
+            {
+                _pos++;
+                var items = new List<DisplayLogicASTNode>();
+                while (_pos < _tokens.Count && !(_tokens[_pos].Type == DisplayLogicTokenType.RParen && _tokens[_pos].Text == "]"))
+                {
+                    items.Add(ParsePrimary());
+                    if (_pos < _tokens.Count && _tokens[_pos].Type == DisplayLogicTokenType.Comma)
+                    {
+                        _pos++;
+                    }
+                }
+                if (_pos < _tokens.Count && _tokens[_pos].Type == DisplayLogicTokenType.RParen && _tokens[_pos].Text == "]")
+                    _pos++;
+                var rightNode = new ArrayNode(items);
+                left = new ComparisonNode(op, left, rightNode);
+            }
+            else
+            {
+                var right = ParsePrimary();
+                left = new ComparisonNode(op, left, right);
+            }
         }
-        return left;
+        // Check for unary 'empty' / 'not empty' after binary comparison
+        return ParseEmptyCheck(left);
     }
 
     private DisplayLogicASTNode ParseAnd()
@@ -259,6 +324,7 @@ internal class ExpressionParser
 
     private DisplayLogicASTNode ParseNot()
     {
+        // Handle prefix '!' negation
         if (_pos < _tokens.Count && _tokens[_pos].Type == DisplayLogicTokenType.Not)
         {
             _pos++;
@@ -266,6 +332,25 @@ internal class ExpressionParser
             return new NotNode(operand);
         }
         return ParsePrimary();
+    }
+
+    /// <summary>
+    /// Parses primary nodes and checks for unary postfix 'empty' / 'not empty' operators.
+    /// 'empty' and 'not empty' are unary operators that check for null/empty values.
+    /// </summary>
+    private DisplayLogicASTNode ParseEmptyCheck(DisplayLogicASTNode node)
+    {
+        if (_pos < _tokens.Count && _tokens[_pos].Type == DisplayLogicTokenType.Empty)
+        {
+            _pos++;
+            return new EmptyCheckNode(true, node);
+        }
+        if (_pos < _tokens.Count && _tokens[_pos].Type == DisplayLogicTokenType.NotEmpty)
+        {
+            _pos++;
+            return new EmptyCheckNode(false, node);
+        }
+        return node;
     }
 
     private DisplayLogicASTNode ParsePrimary()
@@ -282,7 +367,7 @@ internal class ExpressionParser
                 var expr = ParseOr() ?? new LiteralNode(null);
                 if (_pos < _tokens.Count && _tokens[_pos].Type == DisplayLogicTokenType.RParen)
                     _pos++;
-                return expr;
+                return ParseEmptyCheck(expr);
 
             case DisplayLogicTokenType.String:
                 _pos++;
@@ -313,10 +398,12 @@ internal class ExpressionParser
                         _pos++;
                         var right = ParsePrimary();
                         var leftNode = new FieldRefNode(fieldRef);
-                        return new ComparisonNode(op, leftNode, right);
+                        var comp = new ComparisonNode(op, leftNode, right);
+                        return ParseEmptyCheck(comp);
                     }
 
-                    return new FieldRefNode(fieldRef);
+                    var fieldNode = new FieldRefNode(fieldRef);
+                    return ParseEmptyCheck(fieldNode);
                 }
 
             case DisplayLogicTokenType.EOF:
@@ -325,7 +412,8 @@ internal class ExpressionParser
 
             default:
                 _pos++;
-                return new LiteralNode(null);
+                var defaultNode = new LiteralNode(null);
+                return ParseEmptyCheck(defaultNode);
         }
     }
 
@@ -334,7 +422,8 @@ internal class ExpressionParser
         return type is DisplayLogicTokenType.Eq or DisplayLogicTokenType.Ne or
                DisplayLogicTokenType.Lt or DisplayLogicTokenType.Gt or
                DisplayLogicTokenType.Le or DisplayLogicTokenType.Ge or
-               DisplayLogicTokenType.In or DisplayLogicTokenType.Like;
+               DisplayLogicTokenType.In or DisplayLogicTokenType.NotIn or
+               DisplayLogicTokenType.Like or DisplayLogicTokenType.NotLike;
     }
 
     private static string ConvertOp(DisplayLogicTokenType type)
@@ -348,7 +437,11 @@ internal class ExpressionParser
             DisplayLogicTokenType.Le => "<=",
             DisplayLogicTokenType.Ge => ">=",
             DisplayLogicTokenType.In => "in",
+            DisplayLogicTokenType.NotIn => "not in",
             DisplayLogicTokenType.Like => "like",
+            DisplayLogicTokenType.NotLike => "not like",
+            DisplayLogicTokenType.Empty => "empty",
+            DisplayLogicTokenType.NotEmpty => "not empty",
             _ => ""
         };
     }

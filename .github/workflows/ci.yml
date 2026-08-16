@@ -14,7 +14,7 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_PASSWORD: Era@123
+          POSTGRES_PASSWORD: ${{ secrets.NCLC_DB_PASSWORD }}
           POSTGRES_DB: nclc
         ports:
           - 5432:5432
@@ -54,18 +54,20 @@ jobs:
     - name: Check PostgreSQL connectivity
       run: pg_isready -h localhost -p 5432
       env:
-        PGPASSWORD: Era@123
+        PGPASSWORD: ${{ secrets.NCLC_DB_PASSWORD }}
 
-    - name: Run migrations via psql
+    - name: Run all migrations via psql
       env:
-        PGPASSWORD: Era@123
+        PGPASSWORD: ${{ secrets.NCLC_DB_PASSWORD }}
       run: |
-        psql -h localhost -p 5432 -U postgres -d nclc -f src/Platform.Data/Migrations/001_Create_Dictionary_Schema.sql
-        psql -h localhost -p 5432 -U postgres -d nclc -f src/Platform.Data/Migrations/002_Seed_Dictionary_Data.sql
+        for f in src/Platform.Data/Migrations/*.sql; do
+          echo "Running: $f"
+          psql -h localhost -p 5432 -U postgres -d nclc -f "$f"
+        done
 
     - name: Test (Schema Contract)
       env:
-        NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=Era@123
+        NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=${{ secrets.NCLC_DB_PASSWORD }}
       run: dotnet test tests/Platform.Tests.SchemaContract/Platform.Tests.SchemaContract.csproj --no-build --verbosity normal
 
     - name: Build Integration Tests
@@ -73,7 +75,7 @@ jobs:
 
     - name: Test (Integration — requires PostgreSQL service)
       env:
-        NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=Era@123
+        NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=${{ secrets.NCLC_DB_PASSWORD }}
       run: dotnet test tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --logger:"console;verbosity=normal"
 
     - name: Verify Redis connectivity
@@ -88,7 +90,7 @@ jobs:
 
     - name: Test (Redis Integration — requires Redis service)
       env:
-        NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=Era@123
+        NCLC_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=nclc;Username=postgres;Password=${{ secrets.NCLC_DB_PASSWORD }}
         NCLC_REDIS_CONNECTION_STRING: localhost:6379
       run: dotnet test tests/Platform.Tests.Integration/Platform.Tests.Integration.csproj --filter "Category=redis" --logger:"console;verbosity=normal"
 
@@ -109,3 +111,47 @@ jobs:
     - name: Build frontend
       run: npm run build
       working-directory: frontend
+
+    - name: Frontend unit tests
+      run: npm test -- --watchAll=false --passWithNoTests
+      working-directory: frontend
+      env:
+        CI: true
+
+    - name: Bundle size check
+      run: |
+        # Find all JS files in dist/ and estimate gzipped size
+        TOTAL_RAW=0
+        for f in $(find frontend/dist -name "*.js" -type f); do
+          SIZE=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null || echo 0)
+          TOTAL_RAW=$((TOTAL_RAW + SIZE))
+        done
+        # Estimate gzipped as ~35% of raw
+        ESTIMATED_GZIP=$((TOTAL_RAW * 35 / 100))
+        MAX_BYTES=256000  # 250 KB
+        if [ "$ESTIMATED_GZIP" -gt "$MAX_BYTES" ]; then
+          echo "::error::Bundle size exceeds limit: estimated $((ESTIMATED_GZIP / 1024)) KB (max 250 KB)"
+          exit 1
+        fi
+        echo "Bundle size OK: estimated $((ESTIMATED_GZIP / 1024)) KB (max 250 KB)"
+
+    - name: Secret scanning
+      run: |
+        FAILED=0
+        for f in $(find src -name "*.cs" -o -name "*.cshtml" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" | grep -v node_modules | grep -v obj | grep -v bin); do
+          # Skip appsettings files
+          basename=$(basename "$f")
+          if [ "$basename" = "appsettings.json" ] || [ "$basename" = "appsettings.Development.json" ]; then
+            continue
+          fi
+          # Check for hardcoded secrets patterns
+          if grep -iPq '(password|secret|api_key)\s*=\s*["\x27][^"\x27]+["\x27]' "$f" 2>/dev/null; then
+            echo "::error::Potential secret found in: $f"
+            FAILED=1
+          fi
+        done
+        if [ "$FAILED" -eq 1 ]; then
+          echo "::error::Secret scanning failed — review and rotate any exposed credentials"
+          exit 1
+        fi
+        echo "Secret scanning passed"

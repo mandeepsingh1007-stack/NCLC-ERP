@@ -152,10 +152,18 @@ public class QueryBuilder
 
         // Tenant/Org predicates (Phase 4 wiring; null in Phase 3)
         if (!string.IsNullOrWhiteSpace(context.TenantPredicate))
+        {
             whereClauses.Add($"({context.TenantPredicate})");
+            if (!string.IsNullOrWhiteSpace(context.TenantId))
+                allParams.Add(new NpgsqlParameter("@ClientId", context.TenantId));
+        }
 
         if (!string.IsNullOrWhiteSpace(context.OrgPredicate))
+        {
             whereClauses.Add($"({context.OrgPredicate})");
+            if (!string.IsNullOrWhiteSpace(context.OrgId))
+                allParams.Add(new NpgsqlParameter("@OrgId", context.OrgId));
+        }
 
         if (whereClauses.Count > 0)
         {
@@ -317,6 +325,24 @@ public class QueryBuilder
         sb.Append($" WHERE {quotedId} = @Id");
         parameters.Add(new NpgsqlParameter("@Id", DBNull.Value)); // placeholder — set actual id before execution
 
+        // Tenant/Org predicates for safe update scope (Phase 5)
+        var tenantOrgPredicates = new List<string>();
+        if (!string.IsNullOrWhiteSpace(context.TenantPredicate))
+        {
+            tenantOrgPredicates.Add($"({context.TenantPredicate})");
+            if (!string.IsNullOrWhiteSpace(context.TenantId))
+                parameters.Add(new NpgsqlParameter("@ClientId", context.TenantId));
+        }
+        if (!string.IsNullOrWhiteSpace(context.OrgPredicate))
+        {
+            tenantOrgPredicates.Add($"({context.OrgPredicate})");
+            if (!string.IsNullOrWhiteSpace(context.OrgId))
+                parameters.Add(new NpgsqlParameter("@OrgId", context.OrgId));
+        }
+
+        foreach (var pred in tenantOrgPredicates)
+            sb.Append($" AND {pred}");
+
         return (sb.ToString(), parameters.ToArray());
     }
 
@@ -338,23 +364,34 @@ public class QueryBuilder
         if (quotedId == null)
             throw new ArgumentException($"ID column '{idColumnName}' is not valid for table '{tableName}'.");
 
+        var parameters = new List<NpgsqlParameter>();
+        var predicates = new List<string>();
+
         var sb = new StringBuilder();
         sb.Append("DELETE FROM ");
         sb.Append(quotedTable);
         sb.Append(" WHERE ");
         sb.Append(quotedId);
         sb.Append(" = @Id");
+        parameters.Add(new NpgsqlParameter("@Id", DBNull.Value)); // placeholder — set actual id before execution
 
-        var predicates = new List<string>();
         if (!string.IsNullOrWhiteSpace(context.TenantPredicate))
-            predicates.Add(context.TenantPredicate);
+        {
+            predicates.Add($"({context.TenantPredicate})");
+            if (!string.IsNullOrWhiteSpace(context.TenantId))
+                parameters.Add(new NpgsqlParameter("@ClientId", context.TenantId));
+        }
         if (!string.IsNullOrWhiteSpace(context.OrgPredicate))
-            predicates.Add(context.OrgPredicate);
+        {
+            predicates.Add($"({context.OrgPredicate})");
+            if (!string.IsNullOrWhiteSpace(context.OrgId))
+                parameters.Add(new NpgsqlParameter("@OrgId", context.OrgId));
+        }
 
         foreach (var pred in predicates)
             sb.Append($" AND {pred}");
 
-        return (sb.ToString(), Array.Empty<NpgsqlParameter>());
+        return (sb.ToString(), parameters.ToArray());
     }
 
     /// <summary>
